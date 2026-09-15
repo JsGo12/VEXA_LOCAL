@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="data:,">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VEXA</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0a0d14; --border: rgba(255, 255, 255, 0.11);
+            --gold: #d6b56a; --gold-light: #f1d58b; --text: #f3f5f8;
+            --muted: #8b93a1; --danger: #e57373;
+        }
+        body {
+            font-family: Inter, system-ui, sans-serif;
+            color: var(--text); background: var(--bg);
+            display: flex; justify-content: center; align-items: center;
+            width: 100vw; height: 100vh; overflow: hidden;
+        }
+        .app {
+            width: min(1380px, 94vw); height: min(820px, 92vh);
+            display: grid; grid-template-columns: 320px 1fr;
+            background: rgba(14, 18, 28, 0.66);
+            border: 1px solid var(--border); border-radius: 30px;
+            backdrop-filter: blur(25px); overflow: hidden; position: relative;
+        }
+        
+        /* PIN Overlay */
+        .pin-overlay {
+            position: absolute; inset: 0; z-index: 10;
+            background: rgba(10, 13, 20, 0.95); backdrop-filter: blur(20px);
+            display: flex; justify-content: center; align-items: center;
+        }
+        .pin-card {
+            background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border);
+            padding: 40px; border-radius: 20px; text-align: center; width: 340px;
+        }
+        .pin-card h2 { margin-bottom: 8px; color: var(--gold); }
+        .pin-card p { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+        
+        .pin-circles {
+            display: flex; justify-content: center; gap: 15px; margin: 30px 0;
+        }
+        .pin-circle {
+            width: 20px; height: 20px; border-radius: 50%;
+            border: 2px solid var(--gold); background: transparent;
+            transition: all 0.2s ease;
+        }
+        .pin-circle.filled { background: var(--gold); transform: scale(1.15); }
+        .pin-circle.error { border-color: var(--danger); background: var(--danger); }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        .shake { animation: shake 0.4s ease-in-out; }
+        .pin-error { color: var(--danger); font-size: 13px; min-height: 18px; }
+
+        /* Sidebar */
+        .sidebar { padding: 30px 20px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px; overflow-y: auto; height: 100%; }
+        .brand-name { font-size: 26px; font-weight: 800; letter-spacing: 0.2em; }
+        .brand-name span { color: var(--gold); }
+        .dropzone {
+            border: 1px dashed rgba(255, 255, 255, 0.2); border-radius: 16px;
+            padding: 20px 10px; text-align: center; cursor: pointer; background: rgba(255,255,255,0.02);
+            transition: all 0.2s ease;
+        }
+        .dropzone.dragover { border-color: var(--gold); background: rgba(214, 181, 106, 0.15); }
+        
+        .file-list { display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto; }
+        .file-item {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+            padding: 10px 12px; border-radius: 10px; font-size: 12px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .file-item label { display: flex; align-items: center; gap: 8px; cursor: pointer; width: 100%; overflow: hidden; }
+        .file-item input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; width: 15px; height: 15px; }
+        .file-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Chat Contenedor Fijo */
+        .chat { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
+        .messages { flex: 1; min-height: 0; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .message { max-width: 80%; padding: 14px 18px; border-radius: 14px; font-size: 13.5px; line-height: 1.6; }
+        .message.user { align-self: flex-end; background: rgba(214, 181, 106, 0.2); border: 1px solid rgba(214, 181, 106, 0.3); }
+        .message.assistant { align-self: flex-start; background: rgba(13, 50, 76, 0.7); border: 1px solid rgba(63, 146, 180, 0.3); }
+        
+        .message strong { color: var(--gold-light); }
+        .message ul { margin-left: 18px; margin-top: 6px; margin-bottom: 6px; }
+        .message li { margin-bottom: 4px; }
+
+        .thinking { font-style: italic; color: var(--gold); display: flex; align-items: center; gap: 8px; }
+        .dot-flashing {
+            display: inline-block; width: 6px; height: 6px; border-radius: 5px;
+            background-color: var(--gold); animation: dotFlashing 1s infinite linear alternate;
+        }
+        @keyframes dotFlashing { 0% { opacity: 0.2; } 100% { opacity: 1; } }
+
+        /* Input del Chat Siempre Visible */
+        .composer { padding: 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; background: rgba(10, 13, 20, 0.6); flex-shrink: 0; }
+        .composer input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 12px 16px; color: var(--text); border-radius: 12px; outline: none; }
+        .composer button { padding: 12px 24px; background: var(--gold); border: none; font-weight: bold; border-radius: 12px; cursor: pointer; }
+        .composer button:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <main class="app">
+        <!-- Overlay del PIN -->
+        <div id="pinOverlay" class="pin-overlay">
+            <div class="pin-card" id="pinCard">
+                <h2 id="pinTitle">VEXA</h2>
+                <p id="pinSub">Ingrese su PIN de acceso</p>
+                <div class="pin-circles" id="pinCircles">
+                    <div class="pin-circle"></div>
+                    <div class="pin-circle"></div>
+                    <div class="pin-circle"></div>
+                    <div class="pin-circle"></div>
+                </div>
+                <div id="pinError" class="pin-error"></div>
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="brand-name">VE<span>X</span>A</div>
+            
+            <div class="dropzone" id="dropzone" onclick="seleccionarDocumentos()">
+                <strong>Cargar documentos</strong>
+                <p style="font-size: 11px; color: var(--muted); margin-top: 4px;">Haz clic o arrastra archivos PDF/DOCX aquí</p>
+            </div>
+
+            <div style="font-size: 11px; color: var(--muted); text-transform: uppercase;">Archivos Activos para Consulta</div>
+            <div id="fileList" class="file-list"></div>
+            <div id="statusText" style="font-size: 11px; color: var(--muted);">Estado: Esperando PIN...</div>
+        </aside>
+
+        <section class="chat">
+            <div class="messages" id="messages">
+                <div class="message assistant">Hola. Soy VEXA. Carga tus documentos y escribe tu consulta.</div>
+            </div>
+            <div class="composer">
+                <input type="text" id="questionInput" placeholder="Escribe una pregunta y presiona Enter..." autocomplete="off">
+                <button id="sendButton" onclick="enviarPregunta()">Enviar</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        /* --- PIN TECLADO --- */
+        let currentPin = '';
+        let pinActive = true;
+        const circles = document.querySelectorAll('.pin-circle');
+
+        window.addEventListener('keydown', (e) => {
+            if (!pinActive) return;
+            
+            if (e.key >= '0' && e.key <= '9' && currentPin.length < 4) {
+                currentPin += e.key;
+                actualizarVistaPin();
+                if (currentPin.length === 4) validarPin();
+            } else if (e.key === 'Backspace' && currentPin.length > 0) {
+                currentPin = currentPin.slice(0, -1);
+                actualizarVistaPin();
+            }
+        });
+
+        function actualizarVistaPin() {
+            document.getElementById('pinError').textContent = '';
+            circles.forEach((circle, index) => {
+                circle.classList.remove('error');
+                if (index < currentPin.length) circle.classList.add('filled');
+                else circle.classList.remove('filled');
+            });
+        }
+
+        async function validarPin() {
+            const res = await pywebview.api.validar_o_crear_pin(currentPin);
+            if (res.ok) {
+                pinActive = false;
+                document.getElementById('pinOverlay').style.display = 'none';
+                document.getElementById('statusText').textContent = "Sistema listo.";
+                document.getElementById('questionInput').focus();
+            } else {
+                const pinCard = document.getElementById('pinCard');
+                pinCard.classList.add('shake');
+                document.getElementById('pinError').textContent = res.mensaje;
+                circles.forEach(c => c.classList.add('error'));
+                
+                setTimeout(() => {
+                    pinCard.classList.remove('shake');
+                    currentPin = '';
+                    actualizarVistaPin();
+                }, 500);
+            }
+        }
+
+        /* --- DRAG & DROP GLOBAL Y DE ZONA --- */
+        const dropzone = document.getElementById('dropzone');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            document.body.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(name => {
+            document.body.addEventListener(name, () => dropzone.classList.add('dragover'));
+        });
+
+        ['dragleave', 'drop'].forEach(name => {
+            document.body.addEventListener(name, () => dropzone.classList.remove('dragover'));
+        });
+
+        document.body.addEventListener('drop', async (e) => {
+            const files = Array.from(e.dataTransfer.files).map(f => f.path).filter(Boolean);
+            if (files.length > 0) {
+                document.getElementById('statusText').textContent = "Procesando archivos...";
+                const res = await pywebview.api.procesar_rutas(files);
+                actualizarEstadoArchivos(res);
+            }
+        });
+
+        async function seleccionarDocumentos() {
+            document.getElementById('statusText').textContent = "Abriendo selector...";
+            const res = await pywebview.api.seleccionar_documentos();
+            actualizarEstadoArchivos(res);
+        }
+
+        function actualizarEstadoArchivos(res) {
+            document.getElementById('statusText').textContent = res.mensaje;
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            if (res.archivos) {
+                res.archivos.forEach(nombre => {
+                    const item = document.createElement('div');
+                    item.className = 'file-item';
+                    item.innerHTML = `
+                        <label>
+                            <input type="checkbox" class="file-checkbox" value="${nombre}" checked>
+                            <span>📄 ${nombre}</span>
+                        </label>
+                    `;
+                    fileList.appendChild(item);
+                });
+            }
+        }
+
+        /* --- CHAT Y ENTER --- */
+        function renderMarkdown(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/^- (.*$)/gim, '• $1')
+                .replace(/\n/g, '<br>');
+        }
+
+        document.getElementById('questionInput').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                enviarPregunta();
+            }
+        });
+
+        async function enviarPregunta() {
+            const input = document.getElementById('questionInput');
+            const btn = document.getElementById('sendButton');
+            const pregunta = input.value.trim();
+            if (!pregunta) return;
+
+            const seleccionados = Array.from(document.querySelectorAll('.file-checkbox:checked')).map(cb => cb.value);
+
+            agregarMensaje(pregunta, 'user');
+            input.value = '';
+            input.disabled = true;
+            btn.disabled = true;
+
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message assistant thinking';
+            loadingDiv.id = 'loadingMsg';
+            loadingDiv.innerHTML = `<span class="dot-flashing"></span> Consultando información en los documentos...`;
+            document.getElementById('messages').appendChild(loadingDiv);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+
+            const respuesta = await pywebview.api.responder_pregunta(pregunta, seleccionados);
+
+            const loader = document.getElementById('loadingMsg');
+            if (loader) loader.remove();
+
+            input.disabled = false;
+            btn.disabled = false;
+            input.focus();
+
+            agregarMensaje(respuesta, 'assistant');
+        }
+
+        function agregarMensaje(texto, tipo) {
+            const container = document.getElementById('messages');
+            const msg = document.createElement('div');
+            msg.className = `message ${tipo}`;
+            msg.innerHTML = renderMarkdown(texto);
+            container.appendChild(msg);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        window.addEventListener('pywebviewready', async () => {
+            const requierePin = await pywebview.api.requiere_pin();
+            if (!requierePin) {
+                document.getElementById('pinTitle').textContent = "CONFIGURAR PIN";
+                document.getElementById('pinSub').textContent = "Cree un PIN de 4 dígitos con el teclado.";
+            }
+        });
+    </script>
+</body>
+</html>
