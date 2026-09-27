@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" href="static/img/icon_square.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VEXA</title>
+    <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+
+    <main class="app">
+        <!-- Overlay del PIN -->
+        <div id="pinOverlay" class="pin-overlay">
+            <div class="pin-card" id="pinCard">
+                <h2 id="pinTitle">VEXA</h2>
+                <p id="pinSub">Ingrese su PIN de acceso</p>
+                <div class="pin-circles" id="pinCircles">
+                    <div class="pin-circle"></div>
+                    <div class="pin-circle"></div>
+                    <div class="pin-circle"></div>
+                    <div class="pin-circle"></div>
+                </div>
+                <div id="pinError" class="pin-error"></div>
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="brand-name"><img src="static/img/icon_square.png" alt="VEXA">VE<span>X</span>A</div>
+
+            <div class="dropzone" id="dropzone" onclick="seleccionarDocumentos()">
+                <strong>Cargar documentos</strong>
+                <p style="font-size: 11px; color: var(--muted); margin-top: 4px;">Haz clic o arrastra archivos PDF/DOCX aquí</p>
+            </div>
+
+            <div class="expiry-picker">
+                <label for="expirySelect">Mantener archivo activo por:</label>
+                <select id="expirySelect">
+                    <option value="1800">30 minutos</option>
+                    <option value="3600">1 hora</option>
+                    <option value="7200" selected>2 horas</option>
+                    <option value="14400">4 horas</option>
+                    <option value="28800">8 horas</option>
+                    <option value="86400">24 horas</option>
+                    <option value="0">Sin límite</option>
+                </select>
+            </div>
+
+            <div class="section-label">
+                <span>Archivos activos</span>
+                <span class="section-label__hint" title="Cada archivo se retira del contexto según el tiempo que elegiste al cargarlo">tiempo variable</span>
+            </div>
+            <div id="fileList" class="file-list"></div>
+            <div id="fileListEmpty" class="file-list-empty">Aún no hay archivos cargados.</div>
+            <div id="statusText" class="status-text">Estado: Esperando PIN...</div>
+        </aside>
+
+        <section class="chat">
+            <div class="chat-header">
+                <span class="chat-header__title">Consulta</span>
+                <button class="chat-header__clear" onclick="nuevaConversacion()" title="Borra el chat visible (no afecta los archivos cargados)">
+                    🗑️ Nueva conversación
+                </button>
+            </div>
+            <div class="messages" id="messages">
+                <div class="message assistant">Hola. Soy VEXA. Carga tus documentos y escribe tu consulta.</div>
+            </div>
+            <div class="composer">
+                <input type="text" id="questionInput" placeholder="Escribe una pregunta y presiona Enter..." autocomplete="off">
+                <button id="sendButton" onclick="enviarPregunta()">Enviar</button>
+            </div>
+        </section>
+    </main>
+
+    <script src="static/js/app.js"></script>
+</body>
+</html>
