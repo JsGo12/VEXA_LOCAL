@@ -1,127 +1,173 @@
-# Nombre del Proyecto 
-  Vexa Local
+# Vexa Local
 
-## Descripción del Proyecto
+Asistente de escritorio para consultar documentos locales con inteligencia artificial, 100% offline.
 
-  ### Propósito del Sistema
-  El proyecto es una aplicación de escritorio con interfaz web embebida orientada a la gestión, búsqueda e interacción inteligente con documentos locales mediante procesamiento de lenguaje natural y algoritmos de recuperación de información.
+Proyecto APT (Capstone) — Ingeniería en Informática, Duoc UC.
 
-  ### Público Objetivo
-  Está diseñado para equipos de trabajo, administradores de sistemas y usuarios finales dentro de organizaciones que requieren un control riguroso sobre la asignación de archivos y una consulta rápida de documentación sin depender de servicios en la nube externos.
+---
 
-  ### Problema que Resuelve
-  Elimina las altas latencias asociadas a la lectura e indexación recurrente de archivos pesados y resuelve la falta de control en la gestión documental mediante un mecanismo de precarga en memoria y un sistema de delegación temporal de archivos.
+## Descripción
 
-## Tecnologías Utilizadas
+Las organizaciones que manejan documentación sensible (fichas, informes, contratos) necesitan consultarla rápido, pero subirla a servicios en la nube implica riesgo de fuga de datos. Además, leer e indexar archivos pesados una y otra vez genera altas latencias, y no existe un control claro de qué archivos están disponibles para consulta y por cuánto tiempo.
 
-* **Lenguaje de Programación:** Python 3.10+
-* **Interfaz de Usuario:** PyWebView, HTML5, CSS3, JavaScript
-* **Procesamiento de Lenguaje Natural e IA:** Ollama (Modelo LLaMA 3.2:3b)
-* **Algoritmos de Búsqueda:** Rank-BM25
-* **Procesamiento de Imágenes y Documentos:** Pillow
-* **Empaquetado:** PyInstaller
+**Vexa Local** resuelve ambos problemas con una aplicación de escritorio que combina:
 
-## Instrucciones para Ejecutar el Proyecto Localmente
+- Un **motor RAG** (*Retrieval-Augmented Generation*) que extrae el texto de PDF y DOCX, lo fragmenta en *chunks*, lo indexa con **BM25** y entrega al modelo solo los fragmentos relevantes, citando documento y página como fuente.
+- Un **LLM local** (Llama 3.2 vía Ollama) que responde únicamente a partir de los documentos cargados, sin inventar información.
+- Un **sistema de delegación temporal de archivos**: cada archivo se precarga en memoria y queda disponible por un tiempo definido por el usuario, protegido con **PIN** de acceso (SHA-256 con *salt*).
 
-### Requisitos Previos y Dependencias
+- **A quién va dirigido:** equipos de trabajo, administradores de sistemas y usuarios finales de organizaciones que requieren control riguroso sobre sus archivos y consulta rápida de documentación sin depender de la nube.
+- **Qué problema resuelve:** elimina la latencia de leer/indexar archivos repetidamente y la falta de control documental, manteniendo todos los datos en la máquina del usuario.
 
-Asegúrese de contar con Python 3.10 o superior y la herramienta Ollama instaladas en el sistema.
+---
 
-Las librerías requeridas para el proyecto se detallan a continuación (pueden almacenarse en un archivo `requirements.txt`):
+## Tecnologías utilizadas
 
-```text
-pywebview
-rank-bm25
-ollama
-pyinstaller
-pillow
+| Componente | Tecnología | Por qué |
+|---|---|---|
+| Lenguaje | **Python 3.10+** | Ecosistema estándar para procesamiento de texto e IA. |
+| Interfaz | **PyWebView + HTML5 / CSS3 / JavaScript** | Ventana nativa con interfaz web embebida; permite una UI moderna sin servidor web. |
+| LLM local | **Ollama (Llama 3.2)** | Inferencia 100% local, sin enviar datos a servicios externos. |
+| Búsqueda | **Rank-BM25** | Recuperación léxica rápida y liviana, sin GPU. |
+| Lectura de documentos | **pdfplumber, python-docx** | Extracción de texto (y tablas) de PDF y Word. |
+| Empaquetado | **PyInstaller** | Genera un ejecutable `.exe` autocontenido. |
+
+Comunicación entre componentes: la interfaz (JavaScript) llama a Python mediante `pywebview.api`; Python procesa los documentos y consulta a Ollama en `http://localhost:11434`. No se realiza ninguna llamada a servicios externos.
+
+Infraestructura y herramientas de apoyo:
+- **Control de versiones:** Git / GitHub (GitFlow: `main`, `develop`, `feature/*`).
+- **Seguimiento:** tableros Kanban.
+
+---
+
+## Estructura del repositorio
+
+```
+VEXA_LOCAL/
+├── Codigo/                 # Código fuente de la aplicación
+│   ├── main.py             # Ventana nativa (PyWebView), API y autenticación por PIN
+│   ├── rag_core.py         # Motor RAG: extracción, chunking, BM25, prompts, Ollama
+│   ├── app.py              # Interfaz alternativa en Tkinter (versión previa)
+│   ├── interface.html      # Interfaz web principal
+│   ├── static/             # CSS, JavaScript e imágenes de la interfaz
+│   ├── tests/              # Pruebas unitarias del motor RAG
+│   ├── requirements.txt
+│   └── iniciar-vexa.bat    # Atajo para ejecutar en Windows
+├── Fase 1/                 # Evidencias de definición del proyecto
+├── Fase 2/                 # Evidencias de desarrollo (grupales, ágiles e individuales)
+├── .gitignore
+└── README.md
 ```
 
-### Pasos de Instalación y Ejecución
+---
 
-Instalar dependencias de Python:
+## Instrucciones para ejecutar el proyecto localmente
 
-Bash
-pip install pywebview rank-bm25 ollama pyinstaller pillow
-(O utilizando el archivo de dependencias: pip install -r requirements.txt)
+**Requisitos previos**
+- Python 3.10 o superior
+- [Ollama](https://ollama.com) instalado
+- Git
 
-Iniciar el servicio y descargar el modelo en Ollama:
-Inicie el servidor local de Ollama:
+**1. Clonar el repositorio**
+```bash
+git clone https://github.com/<organizacion>/VEXA_LOCAL.git
+cd VEXA_LOCAL/Codigo
+```
 
-Bash
-ollama serve
-En una segunda terminal, descargue el modelo de lenguaje requerido:
+**2. Entorno virtual e instalación de dependencias**
+```bash
+python -m venv venv
+source venv/bin/activate   # en Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-Bash
-ollama pull llama3.2:3b
-Ejecutar la aplicación en modo desarrollo:
+**3. Ollama y modelo de lenguaje**
+```bash
+ollama serve               # en una terminal
+ollama pull llama3.2:3b    # en una segunda terminal
+```
 
-Bash
-python main_2.py
-Empaquetar la aplicación para distribución (Ejecutable):
-Para generar el archivo ejecutable autocontenido junto con la interfaz web:
+**4. Ejecutar la aplicación**
+```bash
+python main.py
+```
+En Windows también se puede usar `iniciar-vexa.bat`, que crea el entorno, instala dependencias y abre la aplicación.
 
-Bash
-pyinstaller --noconsole --onefile --add-data "interface_2.html;." main_2.py
+**5. Pruebas**
+```bash
+pytest tests
+```
 
+**6. Generar el ejecutable (opcional)**
+```bash
+pyinstaller --noconsole --onefile --add-data "interface.html;." --add-data "static;static" main.py
+```
 
+**7. Uso**
+Al abrir la aplicación por primera vez se crea un **PIN** de acceso. Luego, cargue uno o más documentos (PDF/DOCX), defina por cuánto tiempo estarán disponibles y haga preguntas en el chat: cada respuesta incluye las fuentes (documento y página).
 
-## Integrantes del Equipo y sus Roles
+---
 
-1. Hector Schulz: Jefe de Proyecto & Desarrollador Full-Stack (Líder del Proyecto)
+## Integrantes del equipo con sus roles
 
-Área de trabajo principal: main.py, gestión del repositorio, configuración del sistema.
+| Integrante | Rol | Responsabilidades principales |
+|---|---|---|
+| **Hector Schulz** | Jefe de Proyecto & Desarrollador Full-Stack | Planificación y coordinación, ventana nativa con PyWebView, integración frontend–backend, autenticación (PIN con SHA-256), manejo de hilos y empaquetado con PyInstaller. |
+| **Ignacio López** | Desarrollador Backend & Especialista en IA / RAG | Motor RAG (BM25), lectura y *chunking* de documentos, integración de Llama 3.2 con Ollama e ingeniería de prompts. |
+| **Josué García** | Desarrollador Frontend & Diseñador UX/UI | Diseño visual, flujo del chat, animaciones y estados de error, lógica JavaScript y conexión con la API de PyWebView. |
 
-Responsabilidades:
+---
 
-Gestión: Planificar los tiempos de entrega, coordinar las tareas del equipo y asegurar que la aplicación cumpla con los requisitos.
+## Metodología de trabajo del equipo
 
-Integración: Crear la ventana nativa de la app con pywebview y unir el trabajo del Frontend con el Backend.
+El desarrollo se ejecuta con **Scrum** combinado con prácticas de **DevOps**:
 
-Seguridad y Core: Implementar la lógica de autenticación (PIN, cifrado SHA-256) y el manejo de hilos (threading) para que la aplicación no se congele.
+1. Definición del problema, alcance y requerimientos.
+2. Diseño de la arquitectura y del flujo de la aplicación.
+3. Desarrollo del motor RAG y de la interfaz en paralelo.
+4. Integración (PyWebView), pruebas y mejoras.
+5. Empaquetado, documentación y preparación de la defensa.
 
-Despliegue: Empaquetar la aplicación final en un ejecutable .exe usando PyInstaller.
+- **Sprints:** iteraciones cortas enfocadas en entregar módulos funcionales.
+- **Control de versiones:** GitFlow — `main` (estable), `develop` (integración) y ramas `feature/*`.
+- **Seguimiento:** tableros Kanban para asignar responsabilidades, controlar incidencias y monitorear avances.
 
+---
 
-2. Ignacio López: Desarrollador Backend & Especialista en IA / RAG
-   
-Área de trabajo principal: rag_core.py, scripts de procesamiento de documentos y conexión con Ollama.
+## Arquitectura de la solución
 
-Responsabilidades:
+Vexa Local es una arquitectura híbrida y desacoplada: una interfaz web local renderizada por PyWebView y un núcleo Python que procesa documentos y consulta al modelo. Todo ocurre en la máquina del usuario.
 
-Motor RAG: Diseñar e implementar la búsqueda léxica (BM25) y la recuperación de información.
+```mermaid
+flowchart LR
+    subgraph Cliente
+        UI["Interfaz<br/>HTML / CSS / JS<br/>PIN, carga de archivos, chat"]
+    end
 
-Integración de Modelos: Configurar, optimizar y conectar el modelo llama3.2 mediante Ollama.
+    subgraph Aplicacion["Aplicación local (Python)"]
+        API["main.py<br/>PyWebView API<br/>PIN, hilos, delegación temporal"]
+        RAG["rag_core.py<br/>Extracción, chunking, BM25"]
+    end
 
-Ingeniería de Prompts: Crear los prompts del sistema para que el modelo responda con precisión a partir de los datos locales sin inventar información.
+    subgraph IA["IA local"]
+        OLL["Ollama<br/>Llama 3.2"]
+    end
 
-Tratamiento de Datos: Manejar la lectura, fragmentación (chunking) e indexación de archivos locales (PDFs, TXT, etc.).
+    DOCS[("Documentos locales<br/>PDF / DOCX")]
 
+    UI -- "pywebview.api" --> API
+    API --> RAG
+    RAG -- "lectura" --> DOCS
+    RAG -- "contexto + pregunta" --> OLL
+    OLL -- "respuesta" --> RAG
+    RAG -- "respuesta + fuentes" --> API
+```
 
-3. Josué García Desarrollador Frontend & Diseñador UX/UI
+**Flujo de datos:**
 
-Área de trabajo principal: interface.html, hojas de estilo (CSS) y lógica de interfaz (JavaScript).
-
-Responsabilidades:
-
-Diseño Visual (UI): Diseñar la interfaz gráfica, paleta de colores, tipografías e identidad visual de la aplicación.
-
-Experiencia de Usuario (UX): Crear el flujo de navegación del chat, animaciones de carga, alertas y respuestas dinámicas.
-
-Desarrollo Web: Programar la lógica interactiva en JS (teclado en pantalla del PIN, entrada/salida del chat, estados de error).
-
-Conexión con la API: Enlazar las acciones de la interfaz visual con las funciones de Python a través de pywebview.api.
-
-## Metodología de Trabajo del Equipo
-El desarrollo del proyecto se ejecutó bajo la metodología Scrum combinada con prácticas de DevOps:
-
-Gestión de Sprints: Iteraciones cortas de desarrollo enfocadas en la entrega de módulos funcionales.
-
-Control de Versiones: Flujo de trabajo basado en GitFlow (main para la versión estable de producción, develop para integración y ramas feature/ para nuevas características).
-
-Seguimiento de Tareas: Tableros Kanban para la asignación de responsabilidades, control de incidencias y monitoreo de avances.
-
-## Arquitectura de la Solución
-La solución utiliza una arquitectura híbrida y desacoplada que combina la ligereza de una interfaz web local (interface_2.html) renderizada a través de pywebview, con un entorno ejecutable en Python (main_2.py) encargado del procesamiento de datos, búsqueda semántica e inferencia de Inteligencia Artificial mediante Ollama.
-
-
+1. El usuario ingresa su **PIN** y carga documentos desde la interfaz.
+2. `main.py` valida el acceso y delega el procesamiento a `rag_core.py` en un hilo aparte para no congelar la ventana.
+3. `rag_core.py` extrae el texto por página, lo divide en *chunks* (detectando fichas repetidas como "Cliente N") y construye un índice **BM25** en memoria.
+4. Ante una pregunta, se recuperan los fragmentos más relevantes y se arma un *prompt* que obliga al modelo a responder solo con ese contexto.
+5. **Ollama** (Llama 3.2) genera la respuesta, que vuelve a la interfaz junto con las fuentes citadas (documento y página).
+6. Los archivos activos expiran según el tiempo elegido por el usuario (delegación temporal).

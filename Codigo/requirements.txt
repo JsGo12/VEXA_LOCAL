@@ -1,0 +1,9 @@
+pdfplumber>=0.11.0
+rank-bm25>=0.2.2
+ollama>=0.3.0
+python-docx>=1.1.0
+pywebview>=6.2.1
+tkinterdnd2>=0.4.3
+# Solo para generar el ejecutable (.exe) y las pruebas:
+pyinstaller>=6.0
+pytest>=8.0
