@@ -58,9 +58,12 @@
         <section class="chat">
             <div class="chat-header">
                 <span class="chat-header__title">Consulta</span>
-                <button class="chat-header__clear" onclick="nuevaConversacion()" title="Borra el chat visible (no afecta los archivos cargados)">
-                    🗑️ Nueva conversación
-                </button>
+                <div class="chat-header__actions">
+                    <button class="chat-header__clear" onclick="mostrarAdministracion()">Administrar casos</button>
+                    <button class="chat-header__clear" onclick="nuevaConversacion()" title="Borra el chat visible (no afecta los archivos cargados)">
+                        Nueva conversación
+                    </button>
+                </div>
             </div>
             <div class="messages" id="messages">
                 <div class="message assistant">Hola. Soy VEXA. Carga tus documentos y escribe tu consulta.</div>
@@ -68,6 +71,45 @@
             <div class="composer">
                 <input type="text" id="questionInput" placeholder="Escribe una pregunta y presiona Enter..." autocomplete="off">
                 <button id="sendButton" onclick="enviarPregunta()">Enviar</button>
+            </div>
+        </section>
+
+        <section class="admin-view" id="adminView" hidden>
+            <header class="admin-header">
+                <div>
+                    <span class="eyebrow">ESTUDIO JURÍDICO</span>
+                    <h1>Administración de casos</h1>
+                    <p>Asigna documentación activa a un abogado o a un equipo.</p>
+                </div>
+                <button class="chat-header__clear" onclick="cerrarAdministracion()">Volver al chat</button>
+            </header>
+
+            <div class="admin-content">
+                <form id="caseForm" class="case-form">
+                    <h2>Nuevo caso</h2>
+                    <label>Nombre del caso<input id="caseTitle" maxlength="120" required placeholder="Ej. Asesoría contrato de arriendo"></label>
+                    <label>Referencia interna <span class="optional">Opcional</span><input id="caseReference" maxlength="60" placeholder="Ej. LEG-2026-014"></label>
+                    <div class="form-row">
+                        <label>Asignar a
+                            <select id="assigneeType"><option value="individual">Abogado/a</option><option value="grupo">Grupo de trabajo</option></select>
+                        </label>
+                        <label id="assigneeLabel">Nombre del abogado/a<input id="assigneeName" maxlength="100" required placeholder="Nombre del responsable"></label>
+                    </div>
+                    <label>Fecha y hora límite<input id="caseDeadline" type="datetime-local" required></label>
+                    <fieldset class="document-picker">
+                        <legend>Documentos del caso</legend>
+                        <div id="caseDocuments" class="case-documents"></div>
+                    </fieldset>
+                    <p class="admin-note">Los documentos deben estar cargados en VEXA. La asignación guarda una referencia a los archivos locales.</p>
+                    <div id="caseFormStatus" class="form-status" role="status"></div>
+                    <button class="primary-button" type="submit">Crear y asignar caso</button>
+                </form>
+
+                <section class="case-list-panel">
+                    <div class="case-list-heading"><div><h2>Casos asignados</h2><p id="caseCount">0 casos</p></div><button class="refresh-button" onclick="cargarAdministracion()" title="Actualizar">↻</button></div>
+                    <div id="caseList" class="case-list"></div>
+                    <div id="caseListEmpty" class="empty-cases">Aún no hay casos asignados.</div>
+                </section>
             </div>
         </section>
     </main>

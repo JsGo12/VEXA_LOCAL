@@ -10,6 +10,7 @@ import rag_core
 CARPETA_CONFIG = pathlib.Path.home() / ".vexa_local"
 ARCHIVO_CONFIG = CARPETA_CONFIG / "config.json"
 ARCHIVO_ARCHIVOS_ACTIVOS = CARPETA_CONFIG / "archivos_activos.json"
+ARCHIVO_CASOS = CARPETA_CONFIG / "casos.json"
 
 # Tiempo por defecto si el usuario no elige nada explícitamente (segundos).
 # El usuario puede elegir su propio tiempo por archivo desde la interfaz;
@@ -30,6 +31,21 @@ def _guardar_archivos_info(info: dict) -> None:
     """Persiste el registro de archivos activos en disco."""
     CARPETA_CONFIG.mkdir(parents=True, exist_ok=True)
     ARCHIVO_ARCHIVOS_ACTIVOS.write_text(json.dumps(info), encoding="utf-8")
+
+
+def _cargar_casos() -> list:
+    if not ARCHIVO_CASOS.exists():
+        return []
+    try:
+        datos = json.loads(ARCHIVO_CASOS.read_text(encoding="utf-8"))
+        return datos if isinstance(datos, list) else []
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def _guardar_casos(casos: list) -> None:
+    CARPETA_CONFIG.mkdir(parents=True, exist_ok=True)
+    ARCHIVO_CASOS.write_text(json.dumps(casos, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def existe_pin_configurado() -> bool:
@@ -79,6 +95,7 @@ class API:
         # Se recupera del disco para que el tiempo de expiración sea real,
         # incluso si la app estuvo cerrada.
         self.archivos_info = _cargar_archivos_info()
+        self.casos = _cargar_casos()
         self._limpiar_archivos_expirados()
         self._reconstruir_indice()
 
@@ -230,6 +247,65 @@ class API:
             file_types=("Documentos (*.pdf;*.docx)", "Todos los archivos (*.*)")
         )
         return self.procesar_rutas(archivos, tiempo_limite_segundos)
+
+    # ------------------------------------------------------------------
+    # Administración local de casos y asignaciones
+    # ------------------------------------------------------------------
+
+    def datos_administracion(self):
+        self._limpiar_archivos_expirados()
+        return {
+            "documentos": [
+                {"nombre": nombre, "ruta": info["ruta"]}
+                for nombre, info in sorted(self.archivos_info.items())
+                if os.path.exists(info.get("ruta", ""))
+            ],
+            "casos": self.casos,
+        }
+
+    def crear_asignacion_caso(self, datos):
+        datos = datos or {}
+        titulo = str(datos.get("titulo", "")).strip()
+        asignado_a = str(datos.get("asignado_a", "")).strip()
+        tipo_asignacion = datos.get("tipo_asignacion")
+        documentos = datos.get("documentos", [])
+        vencimiento = str(datos.get("vencimiento", "")).strip()
+
+        if not titulo or not asignado_a:
+            return {"ok": False, "mensaje": "Ingresa el nombre del caso y la persona o grupo responsable."}
+        if tipo_asignacion not in ("individual", "grupo"):
+            return {"ok": False, "mensaje": "Selecciona si la asignación es individual o grupal."}
+        if not isinstance(documentos, list) or not documentos:
+            return {"ok": False, "mensaje": "Asocia al menos un documento activo al caso."}
+        if not vencimiento:
+            return {"ok": False, "mensaje": "Define la fecha y hora límite del caso."}
+
+        try:
+            fecha_limite = time.mktime(time.strptime(vencimiento, "%Y-%m-%dT%H:%M"))
+        except ValueError:
+            return {"ok": False, "mensaje": "La fecha límite no tiene un formato válido."}
+        if fecha_limite <= time.time():
+            return {"ok": False, "mensaje": "La fecha límite debe ser futura."}
+
+        self._limpiar_archivos_expirados()
+        nombres_validos = set(self.archivos_info)
+        documentos = list(dict.fromkeys(str(nombre) for nombre in documentos))
+        if not set(documentos).issubset(nombres_validos):
+            return {"ok": False, "mensaje": "Uno o más documentos ya no están activos. Actualiza el panel."}
+
+        caso = {
+            "id": secrets.token_hex(8),
+            "titulo": titulo,
+            "referencia": str(datos.get("referencia", "")).strip(),
+            "tipo_asignacion": tipo_asignacion,
+            "asignado_a": asignado_a,
+            "documentos": documentos,
+            "vencimiento": vencimiento,
+            "creado_en": time.strftime("%Y-%m-%dT%H:%M"),
+        }
+        self.casos.append(caso)
+        _guardar_casos(self.casos)
+        return {"ok": True, "mensaje": "Caso asignado correctamente.", "casos": self.casos}
 
     # ------------------------------------------------------------------
     # Consulta al modelo (con citación de fuentes)

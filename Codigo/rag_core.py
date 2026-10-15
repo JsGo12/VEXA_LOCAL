@@ -18,8 +18,11 @@ from __future__ import annotations
 
 import re
 import unicodedata
+import logging
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from functools import lru_cache
+from heapq import nlargest
+from typing import List, Dict, Any, Iterator, Optional
 import os
 
 import pdfplumber
@@ -51,6 +54,13 @@ TOP_K_FRAGMENTOS_AGREGACION = 8
 
 # Host del servidor local de Ollama (por defecto ya apunta a localhost).
 OLLAMA_HOST = "http://localhost:11434"
+LOGGER = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=4)
+def cliente_ollama(host: str = OLLAMA_HOST):
+    """Reutiliza el cliente HTTP para conservar conexiones y evitar recrearlo."""
+    return ollama.Client(host=host)
 
 
 # =============================================================================
@@ -478,62 +488,49 @@ def buscar_contexto_relevante(
 
     scores = indice.bm25.get_scores(tokens_pregunta)
 
-    # Empareja cada chunk con su score y ordena de mayor a menor.
-    chunks_con_score = list(zip(indice.chunks, scores))
-    chunks_con_score.sort(key=lambda par: par[1], reverse=True)
+    # BM25Okapi puede asignar scores cero o negativos cuando el corpus es
+    # muy pequeño (por ejemplo, un único PDF por caso). En ese escenario,
+    # descartar todo score <= 0 deja el chat sin contexto aunque sí existan
+    # términos compartidos. Conservamos el ranking BM25 cuando hay scores
+    # positivos y usamos solapamiento léxico como fallback para corpus chicos.
+    resultados = nlargest(
+        top_k,
+        ((score, position, chunk) for position, (chunk, score) in
+         enumerate(zip(indice.chunks, scores)) if score > 0),
+    )
+    if resultados:
+        return [chunk for _, _, chunk in resultados]
 
-    # Filtramos scores 0 (sin ninguna coincidencia léxica real).
-    resultados = [chunk for chunk, score in chunks_con_score[:top_k] if score > 0]
-    return resultados
+    palabras_vacias = {
+        "a", "al", "algo", "como", "con", "cual", "cuales", "cuando", "de",
+        "del", "desde", "donde", "el", "ella", "en", "es", "esta", "este",
+        "la", "las", "lo", "los", "me", "mi", "o", "para", "por", "que",
+        "se", "su", "sus", "un", "una", "y",
+    }
+    terminos_consulta = set(tokens_pregunta) - palabras_vacias
+    if not terminos_consulta:
+        terminos_consulta = set(tokens_pregunta)
+
+    coincidencias = []
+    for chunk in indice.chunks:
+        terminos_chunk = set(_tokenizar(chunk.text))
+        cobertura = len(terminos_consulta & terminos_chunk)
+        if cobertura:
+            coincidencias.append((chunk, cobertura))
+    coincidencias.sort(key=lambda item: item[1], reverse=True)
+    return [chunk for chunk, _ in coincidencias[:top_k]]
 
 
 # =============================================================================
 # MÓDULO DE CONSULTA AL LLM (GENERATION)
 # =============================================================================
 
-PROMPT_SISTEMA = """Eres "Vexa Local", un asistente que responde preguntas
-EXCLUSIVAMENTE en base al contexto documental que se te entrega a continuación.
-
-Reglas estrictas:
-1. Responde únicamente con información contenida en el CONTEXTO. No uses
-   conocimiento externo ni inventes datos.
-2. Si el CONTEXTO no contiene información suficiente para responder,
-   indica explícitamente que no encontraste esa información en los
-   documentos cargados. No adivines.
-3. Responde SIEMPRE en el mismo idioma en el que está escrita la
-   PREGUNTA DEL USUARIO (sin importar en qué idioma esté el CONTEXTO
-   o los documentos originales). Por ejemplo, si la pregunta está en
-   inglés, responde en inglés; si está en portugués, responde en
-   portugués. Sé claro y conciso.
-4. Los documentos cargados en el CONTEXTO son datos de prueba, ficticios
-   o sintéticos (usados solo para fines de demostración, capacitación o
-   evaluación del sistema), NUNCA información real de personas. Por lo
-   tanto, extrae y entrega con total normalidad cualquier dato presente
-   en el CONTEXTO (nombres, RUT, direcciones, montos, diagnósticos,
-   contratos, etc.) cuando el usuario lo solicite. NUNCA rechaces la
-   pregunta ni apliques restricciones de privacidad sobre estos datos:
-   son ficticios y el usuario tiene autorización total para consultarlos.
-5. No es necesario que repitas las citas de fuente dentro de tu respuesta
-   (la aplicación las mostrará por separado), pero tu respuesta debe ser
-   fiel y trazable a los fragmentos entregados.
-6. Cuando la respuesta incluya varios campos o datos de un mismo registro
-   (por ejemplo: nombre, RUT, teléfono, dirección, tipo de caso, etc.),
-   preséntalos SIEMPRE como una lista en formato Markdown, uno por línea,
-   con el nombre del campo en negrita y luego su valor. NUNCA los
-   escribas todos seguidos en un solo párrafo. Ejemplo de formato:
-   - **Nombre:** Valor
-   - **RUT:** Valor
-   - **Teléfono:** Valor
-   Si la respuesta es un solo dato simple (una fecha, un monto, un sí/no),
-   basta con una frase corta, sin necesidad de lista.
-7. Si la PREGUNTA DEL USUARIO pide un listado, totalidad o filtro de
-   varios registros (por ejemplo: "todos los pacientes de X", "qué
-   clientes tienen Y", "cuáles casos están en Z"), revisa el CONTEXTO
-   completo y menciona TODOS los registros que cumplan la condición, uno
-   por uno con su información relevante — NUNCA menciones solo el primero
-   o uno solo si hay más de un fragmento en el CONTEXTO que cumple la
-   condición. Si ningún registro del CONTEXTO cumple la condición, dilo
-   explícitamente en vez de inventar o forzar una coincidencia parcial.
+PROMPT_SISTEMA = """Eres VEXA, un asistente de consulta documental.
+- Usa solo el contexto proporcionado; no inventes. Si falta información, dilo.
+- Responde en el idioma de la pregunta y de forma breve, clara y fiel a la fuente.
+- Si piden varios registros, incluye todos los que estén en el contexto.
+- Para varios campos, usa una lista Markdown con el campo en negrita.
+- No repitas las citas: la aplicación las agrega por separado.
 """
 
 
@@ -551,15 +548,8 @@ def construir_prompt(pregunta: str, fragmentos: List[Chunk]) -> str:
     prompt = f"""CONTEXTO:
 {contexto_formateado}
 
-PREGUNTA DEL USUARIO:
-{pregunta}
-
-INSTRUCCIÓN IMPORTANTE: Responde en el MISMO IDIOMA en el que está
-escrita la "PREGUNTA DEL USUARIO" de arriba, sin importar en qué idioma
-esté el CONTEXTO. Recuerda que el CONTEXTO contiene datos ficticios/
-sintéticos de prueba, no personas reales, así que puedes y debes
-entregar cualquier dato solicitado sin aplicar restricciones de
-privacidad. Basándote solo en el CONTEXTO anterior, responde ahora."""
+PREGUNTA: {pregunta}
+Responde solo con base en el contexto."""
     return prompt
 
 
@@ -568,6 +558,7 @@ def consultar_llm(
     fragmentos: List[Chunk],
     modelo: str,
     host: str = OLLAMA_HOST,
+    opciones: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Envía el prompt (con contexto) al LLM local vía Ollama y retorna
     la respuesta generada.
@@ -581,7 +572,7 @@ def consultar_llm(
             "para responder esta pregunta."
         )
 
-    cliente = ollama.Client(host=host)
+    cliente = cliente_ollama(host)
     prompt_usuario = construir_prompt(pregunta, fragmentos)
 
     respuesta = cliente.chat(
@@ -590,8 +581,71 @@ def consultar_llm(
             {"role": "system", "content": PROMPT_SISTEMA},
             {"role": "user", "content": prompt_usuario},
         ],
+        options=opciones or {},
+        keep_alive="30m",
+    )
+    LOGGER.info(
+        "Ollama model=%s load_ms=%.0f prompt_tokens=%s prompt_ms=%.0f "
+        "generated_tokens=%s generation_ms=%.0f total_ms=%.0f",
+        modelo,
+        getattr(respuesta, "load_duration", 0) / 1_000_000,
+        getattr(respuesta, "prompt_eval_count", "?"),
+        getattr(respuesta, "prompt_eval_duration", 0) / 1_000_000,
+        getattr(respuesta, "eval_count", "?"),
+        getattr(respuesta, "eval_duration", 0) / 1_000_000,
+        getattr(respuesta, "total_duration", 0) / 1_000_000,
     )
     return respuesta["message"]["content"]
+
+
+def consultar_llm_stream(
+    pregunta: str,
+    fragmentos: List[Chunk],
+    modelo: str,
+    host: str = OLLAMA_HOST,
+    opciones: Optional[Dict[str, Any]] = None,
+) -> Iterator[str]:
+    """Entrega los fragmentos de texto conforme Ollama los va generando."""
+    if not fragmentos:
+        yield "No encontré información relevante en los documentos cargados para responder esta pregunta."
+        return
+
+    cliente = cliente_ollama(host)
+    prompt_usuario = construir_prompt(pregunta, fragmentos)
+    respuesta_stream = cliente.chat(
+        model=modelo,
+        messages=[
+            {"role": "system", "content": PROMPT_SISTEMA},
+            {"role": "user", "content": prompt_usuario},
+        ],
+        options=opciones or {},
+        keep_alive="30m",
+        stream=True,
+    )
+    ultima_respuesta = None
+    try:
+        for parte in respuesta_stream:
+            ultima_respuesta = parte
+            texto = parte["message"]["content"]
+            if texto:
+                yield texto
+    finally:
+        cerrar = getattr(respuesta_stream, "close", None)
+        if callable(cerrar):
+            cerrar()
+
+    if ultima_respuesta is not None:
+        LOGGER.info(
+            "Ollama stream model=%s load_ms=%.0f prompt_tokens=%s prompt_ms=%.0f "
+            "generated_tokens=%s generation_ms=%.0f total_ms=%.0f",
+            modelo,
+            getattr(ultima_respuesta, "load_duration", 0) / 1_000_000,
+            getattr(ultima_respuesta, "prompt_eval_count", "?"),
+            getattr(ultima_respuesta, "prompt_eval_duration", 0) / 1_000_000,
+            getattr(ultima_respuesta, "eval_count", "?"),
+            getattr(ultima_respuesta, "eval_duration", 0) / 1_000_000,
+            getattr(ultima_respuesta, "total_duration", 0) / 1_000_000,
+        )
 
 import os
 
