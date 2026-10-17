@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block title %}{{ case.title }} · VEXA{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('admin_dashboard' if g.user.role == 'admin' else 'lawyer_dashboard') }}">← Volver a mis casos</a>
+<header class="case-workspace-heading">
+  <div><span class="eyebrow">CASO {{ case.reference or ('#' ~ case.id) }}</span><h1>{{ case.title }}</h1><p>Asignado a {{ case.team_name or case.assignee_name }} · Fecha límite {{ case.due_at.replace('T', ' ') }}</p></div>
+  <span class="case-state">En curso</span>
+</header>
+<section class="case-overview">
+  <div class="overview-copy"><span class="eyebrow">RESUMEN DEL EXPEDIENTE</span><p>{{ case_summary or 'Este caso todavía no tiene resumen ni documentos con texto extraíble.' }}</p><p id="aiSummary" class="ai-summary" hidden></p></div>
+  <div class="overview-stats"><div><strong>{{ documents|length }}</strong><span>documentos</span></div><div><strong>{{ case.due_at[:10] }}</strong><span>fecha límite</span></div><div><strong>{{ 'Equipo' if case.team_name else 'Individual' }}</strong><span>asignación</span></div></div>
+</section>
+<div class="workspace-grid">
+  <section class="panel documents-panel">
+    <div class="section-heading"><div><span class="eyebrow">EXPEDIENTE</span><h2>Documentos del caso</h2></div><span class="count-pill">{{ documents|length }}</span></div>
+    {% if documents %}<ul class="document-list">{% for document in documents %}<li><span class="doc-icon">{{ document.original_name.rsplit('.', 1)[-1]|upper }}</span><span class="document-name">{{ document.original_name }}<small>Agregado {{ document.uploaded_at }}</small></span><a class="download-link" href="{{ url_for('download_document', document_id=document.id) }}">Descargar</a></li>{% endfor %}</ul>{% else %}<p class="empty-inline">Este caso no tiene documentos.</p>{% endif %}
+    {% if watch_dir %}<div class="case-notes"><span class="eyebrow">CARPETA VIGILADA</span><p>Copia archivos (PDF, DOCX, XLSX, PPTX, TXT, CSV) en <code>{{ watch_dir }}</code> y se agregarán solos a este caso.</p></div>{% endif %}
+    <div class="case-notes"><span class="eyebrow">ALCANCE</span><p>VEXA buscará respuestas únicamente en los documentos asociados a este caso y mostrará las fuentes utilizadas.</p></div>
+  </section>
+  <section class="panel assistant-panel">
+    <div class="section-heading"><div><span class="eyebrow">ASISTENTE DOCUMENTAL</span><h2>Chat del caso</h2></div><span id="ollamaStatus" class="ollama-status checking"><i></i><span>Verificando Ollama...</span></span></div>
+    <div id="prepBar" class="prep-bar" hidden><div class="prep-track"><div id="prepFill" class="prep-fill"></div></div><span id="prepText"></span></div>
+    <div id="chatMessages" class="chat-messages">
+      <article class="chat-message assistant-message"><p><strong>Hola, {{ g.user.name }}.</strong> Estoy listo para ayudarte con <strong>{{ case.title }}</strong>.</p><p>{{ case_summary or 'Abre uno de los documentos del expediente o pregunta por un dato concreto.' }}</p><div class="case-context">Documentos disponibles: {% for document in documents %}<span>{{ document.original_name }}</span>{% else %}ninguno{% endfor %}</div></article>
+      {% if documents %}<div class="suggestion-label">Prueba una consulta</div><div class="suggestion-list"><button type="button" data-question="Resume los antecedentes principales de este caso.">Resumen del caso</button><button type="button" data-question="¿Qué fechas y plazos aparecen en los documentos?">Fechas y plazos</button><button type="button" data-question="¿Qué información o documentos faltan en el expediente?">Antecedentes faltantes</button></div>{% endif %}
+    </div>
+    <form id="questionForm" class="question-form"><input id="questionInput" autocomplete="off" placeholder="Pregunta sobre los documentos de este caso..." required><button class="button button-primary">Consultar</button></form>
+    <div class="prototype-note">Las respuestas se basan en los documentos recuperados y requieren revisión profesional.</div>
+  </section>
+</div>
+<script>
+const form = document.getElementById('questionForm');
+const input = document.getElementById('questionInput');
+const messages = document.getElementById('chatMessages');
+const token = {{ csrf_token()|tojson }};
+function addMessage(text, type, sources=[]) {
+  const block = document.createElement('article'); block.className = `chat-message ${type}`;
+  const body = document.createElement('p'); body.textContent = text; block.appendChild(body);
+  if (sources.length) { const refs = document.createElement('div'); refs.className = 'sources'; refs.textContent = 'Fuentes: ' + sources.join(' | '); block.appendChild(refs); }
+  messages.appendChild(block); messages.scrollTop = messages.scrollHeight;
+}
+form.addEventListener('submit', async event => {
+  event.preventDefault(); const question = input.value.trim(); if (!question) return;
+  addMessage(question, 'user-message'); input.value = ''; input.disabled = true;
+  const wait = document.createElement('article'); wait.className = 'chat-message assistant-message'; wait.textContent = 'Buscando antecedentes y consultando el modelo local...'; messages.appendChild(wait); messages.scrollTop = messages.scrollHeight;
+  try {
+    const response = await fetch({{ url_for('case_chat', case_id=case.id)|tojson }}, {method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({question})});
+    if (!response.ok) {
+      const result = await response.json();
+      throw new Error(result.error || 'No se pudo completar la consulta.');
+    }
+
+    if (response.headers.get('content-type')?.includes('application/x-ndjson')) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let pending = '', block = null, paragraph = null, answer = '', completed = false;
+      const showEvent = line => {
+        if (!line.trim()) return;
+        const item = JSON.parse(line);
+        if (item.type === 'delta') {
+          if (!block) {
+            wait.remove();
+            block = document.createElement('article'); block.className = 'chat-message assistant-message';
+            paragraph = document.createElement('p'); block.appendChild(paragraph); messages.appendChild(block);
+          }
+          answer += item.text || ''; paragraph.textContent = answer; messages.scrollTop = messages.scrollHeight;
+        } else if (item.type === 'done') {
+          if (!block) { wait.remove(); addMessage('', 'assistant-message', item.sources || []); }
+          else if (item.sources?.length) {
+            const refs = document.createElement('div'); refs.className = 'sources'; refs.textContent = 'Fuentes: ' + item.sources.join(' | '); block.appendChild(refs);
+          }
+          completed = true;
+        } else if (item.type === 'progress') {
+          if (!block) wait.textContent = `Revisando el expediente completo… bloque ${Math.min(item.done + 1, item.total)} de ${item.total}`;
+        } else if (item.type === 'error') {
+          throw new Error(item.error || 'No se pudo completar la consulta.');
+        }
+      };
+      while (true) {
+        const {value, done} = await reader.read();
+        if (done) break;
+        pending += decoder.decode(value, {stream:true});
+        const lines = pending.split('\n'); pending = lines.pop(); lines.forEach(showEvent);
+      }
+      pending += decoder.decode();
+      if (pending.trim()) showEvent(pending);
+      if (!completed) throw new Error('La respuesta se interrumpió antes de terminar. Inténtalo otra vez.');
+    } else {
+      const result = await response.json();
+      if (!result.ok) throw new Error(result.error || 'No se pudo completar la consulta.');
+      wait.remove(); addMessage(result.answer, 'assistant-message', result.sources || []);
+    }
+  } catch (error) { wait.remove(); addMessage(error.message, 'assistant-message'); }
+  finally { input.disabled = false; input.focus(); }
+});
+document.querySelectorAll('.suggestion-list button').forEach(button => button.addEventListener('click', () => { input.value = button.dataset.question; form.requestSubmit(); }));
+async function checkOllama() {
+  const status = document.getElementById('ollamaStatus');
+  try {
+    const response = await fetch({{ url_for('ollama_status')|tojson }}); const result = await response.json();
+    status.className = `ollama-status ${result.ready ? 'ready' : (result.connected ? 'missing-model' : 'offline')}`;
+    status.querySelector('span').textContent = result.message;
+  } catch (_) { status.className = 'ollama-status offline'; status.querySelector('span').textContent = 'No se pudo verificar Ollama'; }
+}
+
+async function loadHistory() {
+  try {
+    const r = await fetch({{ url_for('case_history', case_id=case.id)|tojson }}); const d = await r.json();
+    (d.messages || []).forEach(m => addMessage(m.content, m.role === 'user' ? 'user-message' : 'assistant-message', m.sources ? m.sources.split(' | ') : []));
+  } catch (_) {}
+}
+async function pollPrep() {
+  const bar = document.getElementById('prepBar');
+  try {
+    const r = await fetch({{ url_for('case_status', case_id=case.id)|tojson }}); const s = await r.json();
+    if (s.state === 'running') {
+      bar.hidden = false;
+      document.getElementById('prepFill').style.width = Math.round(s.progress * 100) + '%';
+      document.getElementById('prepText').textContent = s.message + ' · ' + Math.round(s.progress * 100) + '%';
+      setTimeout(pollPrep, 1000); return;
+    }
+    bar.hidden = s.state !== 'error';
+    if (s.state === 'error') document.getElementById('prepText').textContent = s.message;
+    input.disabled = false;
+  } catch (_) { input.disabled = false; }
+}
+async function pollSummary(n = 0) {
+  try {
+    const r = await fetch({{ url_for('case_summary_api', case_id=case.id)|tojson }}); const s = await r.json();
+    if (s.summary) { const el = document.getElementById('aiSummary'); el.hidden = false; el.textContent = 'Resumen automático (IA): ' + s.summary; return; }
+  } catch (_) {}
+  if (n < 40) setTimeout(() => pollSummary(n + 1), 5000);
+}
+loadHistory(); pollPrep(); pollSummary();
+checkOllama();
+</script>
+{% endblock %}

@@ -1,0 +1,31 @@
+{
+  "documents": [
+    {
+      "path": "fixtures/contrato_demo.txt",
+      "name": "Contrato ficticio de evaluación"
+    }
+  ],
+  "questions": [
+    {
+      "id": "monto-arriendo",
+      "question": "¿Cuál es el monto de la renta mensual?",
+      "expected_sources": ["Contrato ficticio de evaluación"],
+      "expected_terms": ["450.000", "pesos"],
+      "expected_no_answer": false
+    },
+    {
+      "id": "subarriendo",
+      "question": "¿Puede el arrendatario subarrendar libremente el inmueble?",
+      "expected_sources": ["Contrato ficticio de evaluación"],
+      "expected_terms": ["autorización escrita"],
+      "expected_no_answer": false
+    },
+    {
+      "id": "correo-no-incluido",
+      "question": "¿Cuál es el correo electrónico de la parte arrendadora?",
+      "expected_sources": [],
+      "expected_terms": [],
+      "expected_no_answer": true
+    }
+  ]
+}

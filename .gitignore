@@ -1,35 +1,45 @@
-# =====================================================================
-# Vexa Local — archivos y carpetas que NO se suben al repositorio
-# =====================================================================
+# Vexa Local: archivos locales y artefactos que no deben publicarse
 
-# --- Python ---
+# Python y pruebas
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*.pyd
+.pytest_cache/
+**/.pytest_*/
+**/.pytest-*/
+*.egg-info/
+
+# Entornos locales
 .venv/
 venv/
 env/
-.pytest_cache/
-*.egg-info/
 
-# --- Empaquetado (PyInstaller) ---
-build/
-dist/
-*.spec
-
-# --- Variables de entorno y secretos ---
+# Secretos y configuración local
 .env
 .env.*
 !.env.example
-
-# --- Configuración local del usuario (PIN, archivos activos) ---
 .vexa_local/
+instance/
+case_documents/
 
-# --- Logs ---
-logs/
+# Bases de datos, índices, logs y respaldos locales
+*.db
+*.sqlite
+*.sqlite3
 *.log
+*.bak
 
-# --- Editores / IDE ---
+# Empaquetado
+build/
+dist/
+*.spec
+!VexaApp/desktop/backend/VexaBackend.spec
+node_modules/
+**/desktop/backend/build/
+**/desktop/backend/dist/
+**/desktop/electron/release/
+
+# Editores / IDE
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
@@ -37,12 +47,12 @@ logs/
 *.swp
 *.swo
 
-# --- Sistema operativo / OneDrive ---
+# Sistema operativo / OneDrive
 .DS_Store
 Thumbs.db
 desktop.ini
 ehthumbs.db
 
-# --- Archivos temporales de Office (documentos abiertos) ---
+# Temporales de Office y archivos temporales
 ~$*
 *.tmp
