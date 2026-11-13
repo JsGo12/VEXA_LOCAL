@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}VEXA · Estudio jurídico{% endblock %}</title>
+  <link rel="icon" href="{{ url_for('static', filename='img/icon_square.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+  {% block styles %}{% endblock %}
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('auth.index') }}"><span class="brand-mark">V</span><span>VEXA <small>ESTUDIO JURÍDICO</small></span></a>
+    {% if g.user %}
+    <nav class="main-nav" aria-label="Navegación principal">
+      {% if g.user.role == 'chief_lawyer' %}<a href="{{ url_for('cases.chief_dashboard') }}">Panel</a>{% endif %}
+      <a href="{{ url_for('cases.lawyer_dashboard') }}">Mis casos</a>
+      {% if can('assistant.use') %}<a href="{{ url_for('assistant.page') }}">Asistente</a>{% endif %}
+      {% if can('users.manage') or can('teams.manage') or can('cases.manage') %}<a href="{{ url_for('admin.dashboard') }}">Administración</a>{% endif %}
+      {% if can('cases.manage') %}<a href="{{ url_for('admin.follow_up') }}">Seguimiento</a>{% endif %}
+      {% if can('permissions.manage') %}<a href="{{ url_for('access.page') }}">Permisos</a>{% endif %}
+      {% if can('audit.view') %}<a href="{{ url_for('audit.page') }}">Auditoría</a>{% endif %}
+    </nav>
+    <div class="topbar-user"><a class="account-link" href="{{ url_for('auth.change_password') }}" title="Cambiar contraseña">{{ g.user.name }} <small>{{ ROLE_LABELS.get(g.user.role, g.user.role) }}</small></a><form action="{{ url_for('auth.logout') }}" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button button-quiet">Cerrar sesión</button></form></div>
+    {% endif %}
+  </header>
+  <main class="page">
+    {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-stack">{% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

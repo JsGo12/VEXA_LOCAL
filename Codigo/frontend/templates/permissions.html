@@ -1,0 +1,47 @@
+{% extends 'base.html' %}{% block title %}Permisos · VEXA{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/management.css') }}">{% endblock %}
+{% block content %}
+<div class="page-heading"><div><span class="eyebrow">CONTROL DE ACCESO</span><h1>Permisos y alcances</h1><p>Denegación por defecto. Los permisos funcionales vienen del rol y se ajustan por usuario; el acceso a datos requiere asignación o una concesión explícita. Ver <code>docs/permisos.md</code>.</p></div></div>
+<div class="dashboard-grid">
+  <section class="panel form-panel">
+    <div class="panel-title"><span class="step">01</span><div><h2>Usuario</h2><p>Selecciona una cuenta para ver su política efectiva.</p></div></div>
+    <form method="get" action="{{ url_for('access.page') }}" class="stack-form"><label>Cuenta<select name="user_id">{% for u in users %}<option value="{{ u.id }}" {% if selected and u.id == selected.id %}selected{% endif %}>{{ u.name }} · @{{ u.username }} · {{ ROLE_LABELS.get(u.role, u.role) }}{% if not u.active %} (desactivada){% endif %}</option>{% endfor %}</select></label><button class="button button-secondary">Ver permisos</button></form>
+  </section>
+  <section class="panel form-panel">
+    <div class="panel-title"><span class="step">02</span><div><h2>Documentos de un caso</h2><p>Restringe documentos o define excepciones por usuario.</p></div></div>
+    <form method="get" action="{{ url_for('access.page') }}" class="stack-form">{% if selected %}<input type="hidden" name="user_id" value="{{ selected.id }}">{% endif %}<label>Caso<select name="case_id">{% for c in cases %}<option value="{{ c.id }}" {% if case_id == c.id %}selected{% endif %}>{{ c.reference or ('#' ~ c.id) }} · {{ c.title }}</option>{% endfor %}</select></label><button class="button button-secondary">Ver documentos</button></form>
+  </section>
+</div>
+
+{% if selected and summary %}
+<section class="cases-section"><div class="section-heading"><div><span class="eyebrow">POLÍTICA EFECTIVA</span><h2>{{ selected.name }} <small>· {{ ROLE_LABELS.get(selected.role, selected.role) }}</small></h2></div></div>
+  <div class="table-wrap"><table class="data-table"><thead><tr><th>Permiso</th><th>Descripción</th><th>Rol</th><th>Ajuste</th><th>Efectivo</th>{% if selected.id != g.user.id %}<th>Cambiar</th>{% endif %}</tr></thead><tbody>
+  {% for key, label in permissions.items() %}{% set override = summary.overrides.get(key) %}<tr><td><code>{{ key }}</code></td><td>{{ label }}</td><td>{{ 'sí' if key in role_permissions.get(selected.role, []) else '—' }}</td><td>{{ {'allow': 'concedido', 'deny': 'denegado'}.get(override, '—') }}</td><td class="{{ 'ok' if key in summary.permissions else 'no' }}">{{ 'Permitido' if key in summary.permissions else 'Denegado' }}</td>
+    {% if selected.id != g.user.id %}<td><form method="post" action="{{ url_for('access.set_override', user_id=selected.id) }}" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="permission" value="{{ key }}"><select name="effect"><option value="allow">Conceder</option><option value="deny">Denegar</option><option value="clear">Quitar ajuste</option></select><button class="button button-quiet">Aplicar</button></form></td>{% endif %}</tr>{% endfor %}
+  </tbody></table></div>
+
+  <div class="section-heading section-gap"><div><span class="eyebrow">ALCANCE DE DATOS</span><h2>Concesiones explícitas</h2></div><span class="count-pill">{{ summary.scope|length }} caso(s) accesibles</span></div>
+  {% if grants %}<ul class="compact-list grant-list">{% for gr in grants %}<li><span class="avatar">{{ gr.scope_type[:1]|upper }}</span><span>{{ scope_types[gr.scope_type] }}{% if gr.scope_type == 'team' %}: {{ gr.team_name }}{% elif gr.scope_type == 'case' %}: {{ gr.case_title }}{% endif %}<small>desde {{ gr.created_at }}</small></span>{% if selected.id != g.user.id %}<form method="post" action="{{ url_for('access.revoke_grant', grant_id=gr.id) }}" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button button-quiet">Revocar</button></form>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="empty-inline">Sin concesiones: solo accede a los casos asignados a su cuenta o a sus equipos.</p>{% endif %}
+  {% if selected.id != g.user.id %}
+  <form method="post" action="{{ url_for('access.add_grant', user_id=selected.id) }}" class="stack-form grant-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-row"><label>Tipo de alcance<select name="scope_type">{% for k, v in scope_types.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></label>
+    <label>Equipo o caso <small>No aplica a «Toda la firma»</small><select name="scope_id"><option value="">—</option><optgroup label="Equipos">{% for t in teams %}<option value="team:{{ t.id }}">Equipo: {{ t.name }}</option>{% endfor %}</optgroup><optgroup label="Casos">{% for c in cases %}<option value="case:{{ c.id }}">Caso: {{ c.reference or ('#' ~ c.id) }} · {{ c.title }}</option>{% endfor %}</optgroup></select></label></div>
+    <p class="hint">Elige un equipo si el tipo es «Equipo» y un caso si el tipo es «Caso». Solo puedes conceder alcances que tú mismo tienes.</p>
+    <button class="button button-secondary">Conceder alcance</button></form>
+  {% endif %}
+  <p class="hint">Casos que puede consultar el asistente transversal: {{ summary.assistant_scope|length }}.</p>
+</section>
+{% endif %}
+
+{% if case_id and documents %}
+<section class="cases-section"><div class="section-heading"><div><span class="eyebrow">RESTRICCIONES DOCUMENTALES</span><h2>Documentos del caso</h2></div></div>
+  <p class="hint">Un documento restringido solo lo ven los usuarios con una excepción «permitir», aunque tengan alcance de firma. Una regla «denegar» siempre prevalece.</p>
+  <div class="table-wrap"><table class="data-table"><thead><tr><th>Documento</th><th>Estado</th><th>Reglas por usuario</th><th>Nueva regla</th></tr></thead><tbody>
+  {% for d in documents %}<tr><td>{{ d.original_name }}</td>
+    <td><form method="post" action="{{ url_for('access.set_restriction', document_id=d.id) }}" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="restricted" value="{{ '0' if d.restricted else '1' }}"><span class="tag">{{ 'Restringido' if d.restricted else 'Abierto al alcance' }}</span><button class="button button-quiet">{{ 'Quitar restricción' if d.restricted else 'Restringir' }}</button></form></td>
+    <td>{% for rule in acl.get(d.id, []) %}<div>{{ rule.name }}: <strong>{{ 'permitir' if rule.effect == 'allow' else 'denegar' }}</strong></div>{% else %}—{% endfor %}</td>
+    <td><form method="post" action="{{ url_for('access.set_document_acl', document_id=d.id) }}" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><select name="user_id">{% for u in users if u.id != g.user.id %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}</select><select name="effect"><option value="allow">Permitir</option><option value="deny">Denegar</option><option value="clear">Quitar regla</option></select><button class="button button-quiet">Aplicar</button></form></td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% elif case_id %}<p class="empty-inline">No hay documentos visibles para administrar en ese caso (o está fuera de tu alcance).</p>{% endif %}
+{% endblock %}

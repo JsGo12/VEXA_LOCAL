@@ -1,0 +1,35 @@
+/* Vistas de administración, permisos y auditoría. */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: #131a26; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.data-table th { text-align: left; color: var(--muted); font-weight: 600; font-size: 10px; letter-spacing: .04em; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.data-table td { padding: 9px 12px; border-bottom: 1px solid #ffffff0a; vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: 0; }
+.data-table td.ok { color: var(--green); }
+.data-table td.no { color: var(--muted); }
+.data-table small { display: block; color: var(--muted); margin-top: 3px; overflow-wrap: anywhere; }
+.row-muted td { opacity: .55; }
+.inline-form { display: inline-flex; align-items: center; gap: 6px; margin: 0; flex-wrap: wrap; }
+.inline-form select, .filter-bar select { border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; color: var(--text); background: #0f1520; font-size: 11px; }
+.compact-form { gap: 8px; margin-top: 8px; }
+.team-row details { flex: 1; }
+.team-row summary { cursor: pointer; }
+.team-row summary small { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; }
+.reassign { margin-top: 10px; font-size: 10px; color: var(--muted); }
+.reassign summary { cursor: pointer; }
+.grant-list li { justify-content: space-between; }
+.grant-list li > span:nth-child(2) { flex: 1; }
+.grant-form { margin-top: 14px; max-width: 720px; }
+.filter-bar { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 14px; }
+.filter-bar label { display: grid; gap: 5px; font-size: 11px; color: #b3bed0; font-weight: 600; }
+.audit-table tr.result-denied td:nth-child(5) { color: var(--red); }
+.audit-table tr.result-error td:nth-child(5) { color: #f2c77b; }
+.audit-table tr.result-ok td:nth-child(5) { color: var(--green); }
+/* Semáforo de vencimientos del panel de seguimiento */
+.deadline-vencido { --deadline: var(--red); background: #ff94940d; }
+.deadline-pronto { --deadline: #f2c77b; background: #f2c77b0d; }
+.deadline-al_dia { --deadline: var(--green); }
+[class^="deadline-"] td:first-child { box-shadow: inset 4px 0 0 var(--deadline); }
+.deadline-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 99px; color: var(--deadline); border: 1px solid var(--deadline); background: #0000001a; white-space: nowrap; }
+.deadline-form { margin-top: 6px; }
+.inline-form input[type=datetime-local] { border: 1px solid var(--line); border-radius: 7px; padding: 5px 7px; color: var(--text); background: #0f1520; font-size: 11px; color-scheme: dark; }
+.inline-form input[type=password] { border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; color: var(--text); background: #0f1520; font-size: 11px; }

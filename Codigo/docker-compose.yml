@@ -1,0 +1,90 @@
+# VEXA Local en Docker: Tailscale + Ollama + VEXA en la MISMA red (la del contenedor tailscale).
+#
+#   docker compose up -d --build
+#   docker compose logs tailscale        # primera vez: abre el enlace de inicio de sesión
+#   docker compose exec tailscale tailscale ip -4   # IP 100.x para los PCs de abogados
+#   docker compose exec ollama ollama pull llama3.2:1b
+#   docker compose exec ollama ollama pull bge-m3
+#   docker compose logs vexa             # contraseña inicial: ver docs/docker.md
+#
+# No hay `ports:` a propósito: nada queda expuesto en la red local del equipo; solo se entra por
+# Tailscale. VEXA y Ollama ven 127.0.0.1 compartido, así que la validación de loopback se mantiene.
+name: vexa
+
+services:
+  tailscale:
+    image: tailscale/tailscale:stable
+    hostname: vexa-servidor
+    environment:
+      # Vacío (recomendado) = inicio de sesión interactivo con el enlace que aparece en los logs.
+      # Si usas una clave de autenticación, pásala solo para el primer arranque y luego quítala.
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_HOSTNAME: vexa-servidor
+      TS_STATE_DIR: /var/lib/tailscale
+      # Modo kernel: crea la interfaz tailscale0 con la IP 100.x en la que escucha VEXA.
+      TS_USERSPACE: "false"
+      TS_ACCEPT_DNS: "false"
+    volumes:
+      - tailscale_estado:/var/lib/tailscale
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    healthcheck:
+      test: ["CMD", "tailscale", "ip", "-4"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    network_mode: service:tailscale
+    environment:
+      # La imagen escucha en 0.0.0.0 por defecto; aquí eso la publicaría en Tailscale. Solo loopback.
+      OLLAMA_HOST: 127.0.0.1:11434
+    volumes:
+      - ollama_modelos:/root/.ollama
+    depends_on:
+      - tailscale
+    restart: unless-stopped
+    # GPU NVIDIA (opcional): descomenta si Docker Desktop tiene soporte de GPU.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  vexa:
+    build: .
+    network_mode: service:tailscale
+    # Ajustes opcionales del contenedor (modelo, MagicDNS…). NO se usa el .env de Windows: su IP de
+    # Tailscale es la del PC, no la del contenedor. Plantilla: .env.docker.example
+    env_file:
+      - path: .env.docker
+        required: false
+    environment:
+      VEXA_DATA_DIR: /data
+      VEXA_HOST: 127.0.0.1
+      VEXA_PORT: "5000"
+      VEXA_THREADS: "8"
+      VEXA_LOG_LEVEL: INFO
+      OLLAMA_HOST: http://127.0.0.1:11434
+      TAILSCALE_ENABLED: "true"
+    volumes:
+      - vexa_datos:/data
+    depends_on:
+      tailscale:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  tailscale_estado:
+  ollama_modelos:
+  vexa_datos:

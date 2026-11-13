@@ -1,0 +1,3 @@
+# Compatibilidad: instala el backend y las herramientas de prueba.
+#   python -m pip install -r requirements.txt
+-r backend/requirements-dev.txt

@@ -1,0 +1,30 @@
+{% extends 'base.html' %}{% block title %}Asistente de la firma · VEXA{% endblock %}
+{% block styles %}<meta name="csrf-token" content="{{ csrf_token() }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/assistant.css') }}">{% endblock %}
+{% block content %}
+<div class="page-heading"><div><span class="eyebrow">ASISTENTE IA TRANSVERSAL</span><h1>Consultas sobre la firma</h1><p>Busca y compara información entre los expedientes autorizados. Todo se procesa en este servidor con Ollama.</p></div><span id="ollamaStatus" class="ollama-status checking"><i></i><span>Verificando Ollama...</span></span></div>
+<div class="assistant-layout" id="assistantApp"
+     data-conversations-url="{{ url_for('assistant.list_conversations') }}"
+     data-create-url="{{ url_for('assistant.create_conversation') }}"
+     data-scope-url="{{ url_for('assistant.scope') }}"
+     data-base-url="{{ url_for('assistant.list_conversations') }}"
+     data-case-url="{{ url_for('cases.case_workspace', case_id=0) }}"
+     data-document-url="{{ url_for('cases.download_document', document_id=0) }}"
+     data-ollama-url="{{ url_for('system.ollama_status') }}">
+  <aside class="panel conversation-panel">
+    <button type="button" id="newConversation" class="button button-primary">Nueva conversación</button>
+    <ul id="conversationList" class="conversation-list" aria-label="Conversaciones"></ul>
+    <details class="scope-box" open><summary>Expedientes en tu alcance <span id="scopeCount" class="count-pill">…</span></summary>
+      <p class="hint">Marca expedientes para limitar la búsqueda; sin selección se usan todos.</p>
+      <div id="scopeList" class="scope-list"></div></details>
+  </aside>
+  <section class="panel assistant-panel">
+    <div class="section-heading"><div><span class="eyebrow">CONVERSACIÓN</span><h2 id="conversationTitle">Nueva consulta</h2></div><button type="button" id="deleteConversation" class="button button-quiet" hidden>Eliminar</button></div>
+    <div id="assistantMessages" class="chat-messages assistant-messages">
+      <article class="chat-message assistant-message"><p>Pregunta por un cliente, una fecha, una cláusula o el estado de un asunto. Cada respuesta indica el expediente y el documento de origen.</p></article>
+    </div>
+    <form id="assistantForm" class="question-form"><input id="assistantInput" autocomplete="off" maxlength="2000" placeholder="Ej. ¿Qué expedientes mencionan a Juan Pérez y en qué estado están?" required><button class="button button-primary">Consultar</button></form>
+    <div class="prototype-note">Solo se consultan expedientes y documentos que tienes autorizados. Las respuestas requieren revisión profesional.</div>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/ndjson.js') }}"></script><script src="{{ url_for('static', filename='js/assistant.js') }}"></script>{% endblock %}

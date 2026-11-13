@@ -1,4 +1,5 @@
-# Vexa Local: archivos locales y artefactos que no deben publicarse
+# Vexa Local: archivos locales y artefactos que no deben publicarse.
+# Las reglas específicas de la aplicación están en Codigo/.gitignore.
 
 # Python y pruebas
 __pycache__/
@@ -14,29 +15,13 @@ __pycache__/
 venv/
 env/
 
-# Secretos y configuración local
+# Secretos y configuración local (solo se versiona la plantilla)
 .env
 .env.*
 !.env.example
-.vexa_local/
-instance/
-case_documents/
+!.env.docker.example
 
-# Bases de datos, índices, logs y respaldos locales
-# Python
-__pycache__/
-*.py[cod]
-*.pyd
-
-# Virtual environments and local configuration
-.venv/
-venv/
-env/
-.env
-.env.*
-!.env.example
-
-# VEXA local data, credentials, indexes and logs
+# Datos de VEXA, credenciales, índices, respaldos y logs
 .vexa_local/
 instance/
 case_documents/
@@ -45,12 +30,12 @@ case_documents/
 *.sqlite3
 *.log
 *.bak
+*.vexabackup
 
-# Empaquetado
+# Empaquetado (desktop/build.ps1 regenera el .spec de PyInstaller)
 build/
 dist/
 *.spec
-!VexaApp/desktop/backend/VexaBackend.spec
 node_modules/
 **/desktop/backend/build/
 **/desktop/backend/dist/
@@ -73,12 +58,3 @@ ehthumbs.db
 # Temporales de Office y archivos temporales
 ~$*
 *.tmp
-
-# Build artifacts
-build/
-dist/
-*.spec
-node_modules/
-desktop/backend/build/
-desktop/backend/dist/
-desktop/electron/release/

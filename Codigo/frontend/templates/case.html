@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}{{ case.title }} · VEXA{% endblock %}
+{% block styles %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('auth.index') }}">← Volver al inicio</a>
+<header class="case-workspace-heading">
+  <div><span class="eyebrow">CASO {{ case.reference or ('#' ~ case.id) }}</span><h1>{{ case.title }}</h1><p>Asignado a {{ case.team_name or case.assignee_name }} · Fecha límite {{ case.due_at.replace('T', ' ') }}</p></div>
+  <span class="case-state status-{{ case.status }}">{{ status_labels.get(case.status, case.status) }} · {{ case.progress }} %</span>
+</header>
+<section class="case-overview">
+  <div class="overview-copy"><span class="eyebrow">RESUMEN DEL EXPEDIENTE</span><p>{{ case_summary or 'Este caso todavía no tiene resumen ni documentos con texto extraíble.' }}</p><p id="aiSummary" class="ai-summary" hidden></p></div>
+  <div class="overview-stats"><div><strong>{{ documents|length }}</strong><span>documentos visibles</span></div><div><strong>{{ case.due_at[:10] }}</strong><span>fecha límite</span></div><div><strong>{{ 'Equipo' if case.team_name else 'Individual' }}</strong><span>asignación</span></div></div>
+</section>
+<div class="workspace-grid" id="caseWorkspace"
+     data-chat-url="{{ url_for('cases.case_chat', case_id=case.id) }}"
+     data-history-url="{{ url_for('cases.case_history', case_id=case.id) }}"
+     data-status-url="{{ url_for('cases.case_status', case_id=case.id) }}"
+     data-summary-url="{{ url_for('cases.case_summary_api', case_id=case.id) }}"
+     data-ollama-url="{{ url_for('system.ollama_status') }}">
+  <section class="panel documents-panel">
+    <div class="section-heading"><div><span class="eyebrow">EXPEDIENTE</span><h2>Documentos del caso</h2></div><span class="count-pill">{{ documents|length }}</span></div>
+    {% if documents %}<ul class="document-list">{% for document in documents %}<li><span class="doc-icon">{{ document.original_name.rsplit('.', 1)[-1]|upper }}</span><span class="document-name">{{ document.original_name }}{% if document.restricted %} <em class="tag">restringido</em>{% endif %}<small>Agregado {{ document.uploaded_at }}</small></span>{% if can_download %}<a class="download-link" href="{{ url_for('cases.download_document', document_id=document.id) }}">Descargar</a>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="empty-inline">No hay documentos visibles para ti en este caso.</p>{% endif %}
+    {% if watch_dir %}<div class="case-notes"><span class="eyebrow">CARPETA VIGILADA</span><p>Copia archivos (PDF, DOCX, XLSX, PPTX, TXT, CSV) en <code>{{ watch_dir }}</code> y se agregarán solos a este caso.</p></div>{% endif %}
+    {% if can('documents.upload') %}<form class="case-notes stack-form compact-form" method="post" action="{{ url_for('cases.upload_documents', case_id=case.id) }}" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><span class="eyebrow">AGREGAR DOCUMENTOS</span><input type="file" name="documents" accept=".pdf,.docx,.xlsx,.pptx,.txt,.csv" multiple required><small class="hint">PDF, DOCX, XLSX, PPTX, TXT o CSV · máximo {{ max_mb }} MB por archivo.</small>{% if can('permissions.manage') %}<label class="check-row"><input type="checkbox" name="restricted" value="1"><span>Marcar como restringidos</span></label>{% endif %}<button class="button button-secondary">Subir al expediente</button></form>{% endif %}
+    <div class="case-notes"><span class="eyebrow">ALCANCE</span><p>VEXA buscará respuestas únicamente en los documentos de este caso que tienes autorizados y mostrará las fuentes utilizadas.</p></div>
+  </section>
+  <section class="panel assistant-panel">
+    <div class="section-heading"><div><span class="eyebrow">ASISTENTE DOCUMENTAL</span><h2>Chat del caso</h2></div><span id="ollamaStatus" class="ollama-status checking"><i></i><span>Verificando Ollama...</span></span></div>
+    <div id="prepBar" class="prep-bar" hidden><div class="prep-track"><div id="prepFill" class="prep-fill"></div></div><span id="prepText"></span></div>
+    <div id="chatMessages" class="chat-messages">
+      <article class="chat-message assistant-message"><p><strong>Hola, {{ g.user.name }}.</strong> Estoy listo para ayudarte con <strong>{{ case.title }}</strong>.</p><p>{{ case_summary or 'Abre uno de los documentos del expediente o pregunta por un dato concreto.' }}</p><div class="case-context">Documentos disponibles: {% for document in documents %}<span>{{ document.original_name }}</span>{% else %}ninguno{% endfor %}</div></article>
+      {% if documents %}<div class="suggestion-label">Prueba una consulta</div><div class="suggestion-list"><button type="button" data-question="Resume los antecedentes principales de este caso.">Resumen del caso</button><button type="button" data-question="¿Qué fechas y plazos aparecen en los documentos?">Fechas y plazos</button><button type="button" data-question="¿Qué información o documentos faltan en el expediente?">Antecedentes faltantes</button></div>{% endif %}
+    </div>
+    <form id="questionForm" class="question-form"><input id="questionInput" autocomplete="off" maxlength="2000" placeholder="Pregunta sobre los documentos de este caso..." required><button class="button button-primary">Consultar</button></form>
+    <div class="prototype-note">Las respuestas se basan en los documentos recuperados y requieren revisión profesional.</div>
+  </section>
+</div>
+<section class="panel progress-panel" id="avance">
+  <div class="section-heading"><div><span class="eyebrow">SEGUIMIENTO</span><h2>Avance del caso</h2></div><span class="count-pill">{{ status_labels.get(case.status, case.status) }}</span></div>
+  <progress class="progress-meter" max="100" value="{{ case.progress }}">{{ case.progress }} %</progress><p class="hint">{{ case.progress }} % completado</p>
+  <div class="progress-grid">
+    {% if can('cases.update_progress') %}
+    <form method="post" action="{{ url_for('cases.update_progress', case_id=case.id) }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-row"><label>Estado<select name="status">{% for key, label in status_labels.items() %}<option value="{{ key }}" {% if key == case.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label>Avance (%)<input type="number" name="progress" min="0" max="100" step="5" value="{{ case.progress }}" required></label></div>
+      <label>Nota de avance <small>Opcional · se guarda cifrada</small><textarea name="note" rows="3" maxlength="2000" placeholder="Qué se hizo, qué falta y próximos pasos."></textarea></label>
+      <button class="button button-primary">Registrar avance</button></form>
+    {% endif %}
+    <div><h3 class="subheading">Historial</h3>{% if updates %}<ol class="update-list">{% for u in updates %}<li><div><strong>{{ u.status_label }} · {{ u.progress }} %</strong><small>{{ u.author or 'Usuario eliminado' }} · {{ u.created_at }}</small></div>{% if u.note %}<p>{{ u.note }}</p>{% endif %}</li>{% endfor %}</ol>{% else %}<p class="empty-inline">Aún no hay actualizaciones de avance.</p>{% endif %}</div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/ndjson.js') }}"></script><script src="{{ url_for('static', filename='js/case-chat.js') }}"></script>{% endblock %}
