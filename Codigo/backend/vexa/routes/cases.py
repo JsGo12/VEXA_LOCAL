@@ -5,10 +5,12 @@ import io
 import json
 import logging
 import time
+import zipfile
 from pathlib import Path
 
 from flask import (Blueprint, Response, flash, g, jsonify, redirect, render_template, request, send_file,
                    stream_with_context, url_for)
+from werkzeug.utils import secure_filename
 
 from vexa import runtime
 from vexa.database import connect, store
@@ -21,6 +23,10 @@ from vexa.rag import stages as rag_stages
 from vexa.security import vault
 from vexa.services import audit
 from vexa.services import cases as case_service
+from vexa.services import messages as message_service
+from vexa.services import notifications as notification_service
+from vexa.services import llm_priority
+from vexa.services.audit_view import local_time
 from vexa.services.indexing import document_paths
 
 bp = Blueprint("cases", __name__)
@@ -110,11 +116,20 @@ def case_workspace(case_id):
             LOGGER.exception("No se pudo generar una vista previa para el caso %s", case_id)
     audit.record("cases.open", "ok", resource_type="case", resource_id=case_id)
     watch_dir = str(rt.settings.watch_dir / str(case_id)) if can("cases.manage") else None
+    team, unread, panel = [], 0, request.args.get("panel", "")
+    if can("cases.message"):
+        team = message_service.thread(rt.settings.db_path, case_id, g.user["id"])
+        if panel == "mensajes":
+            message_service.mark_read(rt.settings.db_path, case_id, g.user["id"])
+        unread = message_service.unread_count(rt.settings.db_path, case_id, g.user["id"])
     return render_template("case.html", case=case, documents=documents, case_summary=case_summary,
                            watch_dir=watch_dir, can_download=can("documents.download"),
                            updates=case_service.case_updates(rt.settings.db_path, case_id),
-                           status_labels=case_service.STATUS_LABELS,
-                           max_mb=rt.settings.max_file_size // (1024 * 1024))
+                           status_labels=case_service.STATUS_LABELS, close_reasons=case_service.CLOSE_REASONS,
+                           max_mb=rt.settings.max_file_size // (1024 * 1024),
+                           team_messages=[{**m, "when": local_time(m["created_at"])} for m in team],
+                           messages_unread=unread, quick_messages=message_service.QUICK_MESSAGES,
+                           open_panel="mensajes" if panel == "mensajes" else "ia")
 
 
 @bp.post("/case/<int:case_id>/progress")
@@ -122,16 +137,94 @@ def case_workspace(case_id):
 def update_progress(case_id):
     require_case(case_id, "cases.update_progress")
     try:
-        status, progress, note = case_service.parse_progress(request.form.get("status", ""),
-                                                             request.form.get("progress", ""),
-                                                             request.form.get("note", ""))
-        case_service.update_progress(runtime().settings.db_path, case_id, g.user["id"], status, progress, note)
+        status, progress, note, reason = case_service.parse_progress(
+            request.form.get("status", ""), request.form.get("progress", ""), request.form.get("note", ""),
+            request.form.get("close_reason", ""))
+        case_service.update_progress(runtime().settings.db_path, case_id, g.user["id"], status, progress, note,
+                                     reason)
+        notification_service.progress_updated(runtime().settings.db_path, case_id, g.user["id"],
+                                              case_service.close_label(status, reason), progress)
+        message_service.system(runtime().settings.db_path, case_id,
+                               f"{g.user['name']} actualizó el avance: {case_service.close_label(status, reason)}, {progress} %.")
         audit.record("cases.progress_update", "ok", resource_type="case", resource_id=case_id,
-                     details={"estado": status, "avance": progress, "con_nota": bool(note)})
+                     details={"estado": status, "avance": progress, "con_nota": bool(note),
+                              **({"motivo": reason} if reason else {})})
         flash("Avance del caso actualizado.", "success")
     except case_service.CaseError as exc:
         flash(str(exc), "error")
     return redirect(url_for("cases.case_workspace", case_id=case_id) + "#avance")
+
+
+@bp.post("/case/<int:case_id>/notes")
+@login_required
+def add_note(case_id):
+    """Nota o evidencia del abogado: queda en el historial sin cambiar estado ni porcentaje."""
+    require_case(case_id, "cases.add_note")
+    note = request.form.get("note", "")
+    try:
+        case_service.add_note(runtime().settings.db_path, case_id, g.user["id"], note)
+        notification_service.note_added(runtime().settings.db_path, case_id, g.user["id"], g.user["name"])
+        message_service.system(runtime().settings.db_path, case_id, f"{g.user['name']} registró una nota de avance.")
+        audit.record("cases.note_add", "ok", resource_type="case", resource_id=case_id)
+        flash("Nota registrada en el historial del caso.", "success")
+    except case_service.CaseError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("cases.case_workspace", case_id=case_id) + "#avance")
+
+
+@bp.get("/case/<int:case_id>/expediente.zip")
+@login_required
+def download_case(case_id):
+    """Expediente completo en ZIP: solo los documentos que el usuario puede descargar."""
+    case = require_case(case_id)
+    with connect(runtime().settings.db_path) as db:
+        documents = [d for d in policy.visible_documents(db, g.user, case_id)
+                     if policy.document_allowed(db, g.user, d, "documents.download")]
+    if not documents:
+        audit.record("cases.download", "denied", resource_type="case", resource_id=case_id,
+                     reason="sin documentos descargables")
+        return render_template("error.html", code="403", message="No tienes documentos descargables en este caso."), 403
+    buffer, used, included = io.BytesIO(), set(), 0
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for document in documents:
+            if not Path(document["stored_path"]).is_file():
+                continue
+            try:
+                content = vault.read_bytes(document["stored_path"])
+            except Exception:
+                LOGGER.error("No se pudo descifrar el documento %s", document["id"])
+                continue
+            name, n = document["original_name"], 1
+            while name.lower() in used:           # nombres repetidos: «archivo (2).pdf»
+                stem, dot, ext = document["original_name"].rpartition(".")
+                n += 1
+                name = f"{stem} ({n}).{ext}" if dot else f"{document['original_name']} ({n})"
+            used.add(name.lower())
+            archive.writestr(name, content)
+            included += 1
+    audit.record("cases.download", "ok", resource_type="case", resource_id=case_id,
+                 details={"documentos": included})
+    buffer.seek(0)
+    label = secure_filename(case["reference"] or case["title"]) or f"caso-{case_id}"
+    return send_file(buffer, as_attachment=True, download_name=f"expediente-{label}.zip", mimetype="application/zip")
+
+
+# Destinos permitidos tras subir documentos (lista fija: nunca una URL recibida del formulario).
+_UPLOAD_RETURN = {"admin": "admin.dashboard", "seguimiento": "admin.follow_up"}
+
+
+def upload_reply(response):
+    """Las subidas con barra de progreso (js/upload.js) piden JSON: devuelve a dónde ir en vez de redirigir.
+
+    El mensaje (flash) ya quedó en la sesión, así que se muestra al cargar ese destino."""
+    if request.headers.get("X-Requested-With") == "vexa-upload" and response.status_code in (301, 302, 303):
+        return jsonify(ok=True, redirect=response.location)
+    return response
+
+
+def _after_upload(case_id: int):
+    endpoint = _UPLOAD_RETURN.get(request.form.get("next", ""))
+    return upload_reply(redirect(url_for(endpoint) if endpoint else url_for("cases.case_workspace", case_id=case_id)))
 
 
 @bp.post("/case/<int:case_id>/documents")
@@ -150,7 +243,7 @@ def upload_documents(case_id):
             files.append((case_service.validate_upload(uploaded.filename, content, settings.max_file_size), content))
     except case_service.CaseError as exc:
         flash(str(exc), "error")
-        return redirect(url_for("cases.case_workspace", case_id=case_id))
+        return _after_upload(case_id)
     restricted = 1 if request.form.get("restricted") == "1" and can("permissions.manage") else 0
     ids = []
     for name, content in files:
@@ -159,11 +252,14 @@ def upload_documents(case_id):
             with connect(settings.db_path) as db:
                 db.execute("UPDATE documents SET restricted = 1 WHERE id = ?", (doc_id,))
         ids.append(doc_id)
+    notification_service.documents_added(settings.db_path, case_id, g.user["id"], len(ids))
+    message_service.system(settings.db_path, case_id,
+                           f"{g.user['name']} agregó {len(ids)} documento(s) al expediente.")
     audit.record("documents.upload", "ok", resource_type="case", resource_id=case_id,
                  details={"documentos": ids, "restringidos": bool(restricted)})
     rt.indexer.schedule(case_id)
     flash(f"{len(ids)} documento(s) agregado(s). Se están preparando en segundo plano.", "success")
-    return redirect(url_for("cases.case_workspace", case_id=case_id))
+    return _after_upload(case_id)
 
 
 @bp.get("/documents/<int:document_id>")
@@ -278,7 +374,8 @@ def case_chat(case_id):
 
     user_id = g.user["id"]
     history = store.recent_messages(db_path, case_id, user_id, limit=rag_hybrid.HISTORY_TURNS * 2)
-    standalone = rag_hybrid.reformular_pregunta(question, history, perfil.modelo)
+    with llm_priority.interactive():
+        standalone = rag_hybrid.reformular_pregunta(question, history, perfil.modelo)
 
     answer_key = None
     if signature is not None:
@@ -307,6 +404,10 @@ def case_chat(case_id):
 
     @stream_with_context
     def generate():
+        with llm_priority.interactive():           # el resumen de fondo espera mientras se responde
+            yield from _generate()
+
+    def _generate():
         generation_started = time.perf_counter()
         parts = []
         sources = list(dict.fromkeys(f.fuente for f in (stage_chunks if staged else fragments)))

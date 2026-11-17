@@ -244,12 +244,96 @@ def _m5_case_progress_and_accounts(db: sqlite3.Connection) -> None:
         db.execute("ALTER TABLE users ADD COLUMN session_epoch INTEGER NOT NULL DEFAULT 0")
 
 
+def _m6_chief_supervision_and_case_notes(db: sqlite3.Connection) -> None:
+    """Abogados a cargo de cada abogado jefe y tipo de entrada en el historial del caso.
+
+    - chief_lawyers: el administrador asigna abogados a un abogado jefe; el jefe solo arma equipos y
+      asigna casos con ellos, y ve los casos que tienen asignados (alcance 'supervised').
+    - case_updates.kind: 'avance' (cambia estado/porcentaje) o 'nota' (registro del abogado sin
+      cambiar el avance). Las filas existentes quedan como 'avance', que es lo que eran.
+    """
+    _run_script(db, """
+        CREATE TABLE IF NOT EXISTS chief_lawyers (
+            chief_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            lawyer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (chief_id, lawyer_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_chief_lawyers_lawyer ON chief_lawyers(lawyer_id)
+    """)
+    if "kind" not in _columns(db, "case_updates"):
+        db.execute("ALTER TABLE case_updates ADD COLUMN kind TEXT NOT NULL DEFAULT 'avance' "
+                   "CHECK(kind IN ('avance', 'nota'))")
+
+
+def _m7_notifications(db: sqlite3.Connection) -> None:
+    """Notificaciones dentro de la app (asignaciones, notas, avance y vencimientos). Solo agrega.
+
+    dedupe_key evita repetir el mismo aviso (p. ej. «vence en 3 días» de un caso con esa fecha).
+    """
+    _run_script(db, """
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            kind TEXT NOT NULL,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL DEFAULT '',
+            case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+            dedupe_key TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            read_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read_at, id);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_dedupe ON notifications(user_id, dedupe_key)
+            WHERE dedupe_key IS NOT NULL
+    """)
+
+
+def _m8_close_reason(db: sqlite3.Connection) -> None:
+    """Motivo de cierre de un caso (completado, acuerdo, abandono…). Solo agrega columnas.
+
+    Los casos ya cerrados quedan con motivo vacío («sin motivo registrado»): no se inventa uno.
+    """
+    if "close_reason" not in _columns(db, "cases"):
+        db.execute("ALTER TABLE cases ADD COLUMN close_reason TEXT NOT NULL DEFAULT ''")
+    if "close_reason" not in _columns(db, "case_updates"):
+        db.execute("ALTER TABLE case_updates ADD COLUMN close_reason TEXT NOT NULL DEFAULT ''")
+
+
+def _m9_case_messages(db: sqlite3.Connection) -> None:
+    """Mensajes del equipo por caso (texto cifrado) y hasta dónde leyó cada persona. Solo agrega.
+
+    user_id NULL = aviso automático del sistema (documentos agregados, fecha ampliada…).
+    """
+    _run_script(db, """
+        CREATE TABLE IF NOT EXISTS case_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            case_id INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id),
+            kind TEXT NOT NULL DEFAULT 'mensaje' CHECK(kind IN ('mensaje', 'sistema')),
+            body TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_case_messages_case ON case_messages(case_id, id);
+        CREATE TABLE IF NOT EXISTS case_message_reads (
+            case_id INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            last_read_id INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (case_id, user_id)
+        )
+    """)
+
+
 MIGRATIONS: List[Tuple[int, str, Callable[[sqlite3.Connection], None]]] = [
     (1, "cases.summary", _m1_case_summary),
     (2, "rol chief_lawyer en users", _m2_chief_lawyer_role),
     (3, "permisos, auditoría y asistente", _m3_permissions_audit_assistant),
     (4, "alcance explícito del administrador", _m4_preserve_admin_case_access),
     (5, "avance de casos y contraseñas propias", _m5_case_progress_and_accounts),
+    (6, "abogados a cargo del jefe y notas del abogado", _m6_chief_supervision_and_case_notes),
+    (7, "notificaciones", _m7_notifications),
+    (8, "motivo de cierre de los casos", _m8_close_reason),
+    (9, "mensajes del equipo por caso", _m9_case_messages),
 ]
 LATEST_VERSION = MIGRATIONS[-1][0]
 

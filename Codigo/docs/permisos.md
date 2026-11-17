@@ -18,7 +18,8 @@ Fuente de verdad: `backend/vexa/permissions/catalog.py` (catálogo) y `backend/v
 | `documents.view` | Leer y consultar (chat/RAG) documentos de su alcance |
 | `documents.download` | Descargar documentos de su alcance |
 | `documents.upload` | Agregar documentos a casos de su alcance |
-| `cases.update_progress` | Actualizar estado, avance y notas de casos de su alcance |
+| `cases.update_progress` | Cambiar estado y porcentaje de avance de casos de su alcance |
+| `cases.add_note` | Registrar notas y evidencias del avance, sin cambiar estado ni porcentaje |
 | `permissions.manage` | Ajustar permisos, alcances y restricciones documentales |
 | `assistant.use` | Usar el asistente transversal |
 | `assistant.case_access` | El asistente incluye casos asignados o concedidos individualmente |
@@ -32,7 +33,9 @@ Fuente de verdad: `backend/vexa/permissions/catalog.py` (catálogo) y `backend/v
 |---|:-:|:-:|:-:|
 | `users.manage`, `teams.manage`, `cases.manage` | — | ✔ | ✔ |
 | `cases.view`, `documents.view`, `documents.download` | ✔ | ✔ | ✔ |
-| `cases.update_progress` | ✔ | ✔ | ✔ |
+| `cases.update_progress` (estado y porcentaje) | — | ✔ | ✔ |
+| `cases.add_note` (notas y evidencias) | ✔ | ✔ | ✔ |
+| `cases.message` (mensajes del equipo en el caso) | ✔ | ✔ | ✔ |
 | `documents.upload` | — | ✔ | ✔ |
 | `cases.set_deadline` (cambiar la fecha límite, en Seguimiento) | — | — | ✔ |
 | `permissions.manage`, `audit.view` | — | ✔ | ✔ |
@@ -40,8 +43,10 @@ Fuente de verdad: `backend/vexa/permissions/catalog.py` (catálogo) y `backend/v
 
 Alcance de datos inicial:
 - **Abogado/a**: casos asignados a su cuenta o a sus equipos.
-- **Abogado/a jefe**: igual que un abogado. **No tiene alcance de firma hasta que un administrador se lo conceda** explícitamente (Permisos → Concesiones → «Toda la firma», un equipo o casos concretos). Mientras tanto el asistente solo cubre sus casos asignados.
+- **Abogado/a jefe**: igual que un abogado, más los casos de los **abogados a su cargo** (vía `supervised`: casos asignados a ellos directamente o a un equipo del que forman parte). El administrador decide quiénes están a su cargo en Administración → «Abogados a cargo de cada abogado jefe»; los abogados que el jefe crea quedan a su cargo automáticamente. **No tiene alcance de firma hasta que un administrador se lo conceda** explícitamente.
 - **Administrador**: concesión explícita `firm` (creada al instalar o por la migración 4, para conservar el comportamiento anterior). Es revocable.
+
+La vista **Permisos** tiene dos modos: *Por persona* (permisos agrupados con su origen y botones «Según rol / Conceder / Denegar», más sus alcances) y *Por documento* (para cada documento: quién puede verlo y por qué, quién tiene el caso pero no lo ve, sus reglas y sus últimas descargas). La explicación usa las mismas reglas que el control de acceso (`services/access_view.py`). El abogado jefe solo ve ahí a sus abogados y los casos de su alcance.
 
 Los ajustes por usuario (`user_permissions`) conceden o deniegan permisos concretos sobre lo que da el rol; **`deny` siempre gana**.
 
@@ -74,7 +79,8 @@ Se aplica igual a la apertura del caso, la descarga, el chat por expediente (sol
 ## Reglas contra la escalada de privilegios
 
 - Nadie puede cambiar sus propios permisos, alcances, rol ni estado.
-- Quien no es administrador solo administra cuentas con rol **abogado/a**; solo un administrador crea o modifica administradores y abogados jefe.
+- Quien no es administrador solo administra cuentas con rol **abogado/a** que estén **a su cargo**; solo un administrador crea o modifica administradores y abogados jefe, y solo él asigna abogados a un jefe.
+- El abogado jefe solo arma equipos con abogados a su cargo, solo edita equipos formados únicamente por ellos y solo crea o reasigna casos (dentro de su alcance) hacia ellos o hacia esos equipos. Su panel de administración y de seguimiento muestra solo sus abogados, sus equipos y los casos de su alcance.
 - Solo se pueden **conceder** permisos que uno mismo tiene, y alcances dentro del propio alcance (la firma solo la concede quien la tiene).
 - Restringir documentos exige `permissions.manage` y que el caso esté en el propio alcance.
 - Todo intento denegado queda en la auditoría (`access.denied` o la acción con resultado `denied`).

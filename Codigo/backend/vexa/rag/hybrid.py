@@ -18,6 +18,7 @@ from rank_bm25 import BM25Okapi
 
 from vexa.rag import formats
 from vexa.rag import core as rag_core
+from vexa.rag import prompts
 from vexa.security import vault
 from vexa.rag.core import Chunk, IndiceDocumental, _tokenizar
 
@@ -344,11 +345,7 @@ _SEGUIMIENTO_RE = re.compile(
     r"^(y\b|¿y\b|entonces\b|ademas\b|además\b)|\b(su|sus|ese|esa|esos|esas|el otro|la otra|los otros|"
     r"lo mismo|anterior|mismo|misma)\b", re.IGNORECASE)
 
-PROMPT_REFORMULAR = (
-    "Reescribe la ÚLTIMA pregunta como una pregunta completa e independiente, usando la conversación "
-    "para resolver referencias como 'su', 'el otro' o 'eso'. Responde SOLO con la pregunta reescrita, "
-    "sin explicaciones."
-)
+PROMPT_REFORMULAR = prompts.PROMPT_REFORMULAR   # textos en vexa/rag/prompts.py
 
 
 def parece_seguimiento(pregunta: str) -> bool:
@@ -370,8 +367,8 @@ def reformular_pregunta(pregunta: str, historial: List[dict], modelo: str,
         resp = rag_core.cliente_ollama(host).chat(
             model=modelo,
             messages=[{"role": "system", "content": PROMPT_REFORMULAR},
-                      {"role": "user", "content": f"Conversación:\n{_historial_texto(historial)}\n\n"
-                                                  f"Última pregunta: {pregunta}"}],
+                      {"role": "user", "content": prompts.PLANTILLA_REFORMULAR.format(
+                          conversacion=_historial_texto(historial), pregunta=pregunta)}],
             options={"temperature": 0, "num_predict": 80, "num_ctx": 1536},
             keep_alive=rag_core.OLLAMA_KEEP_ALIVE,
         )
@@ -382,11 +379,7 @@ def reformular_pregunta(pregunta: str, historial: List[dict], modelo: str,
         return pregunta
 
 
-PROMPT_SISTEMA = rag_core.PROMPT_SISTEMA + (
-    "- Si la pregunta es de Sí/No, empieza con 'Sí.' o 'No.' y añade UNA frase breve; "
-    "no uses listas ni mezcles respuestas contradictorias.\n"
-    "- Si varias cláusulas parecen relacionadas, usa solo la que trata exactamente el tema preguntado.\n"
-)
+PROMPT_SISTEMA = prompts.PROMPT_CHAT_CASO
 
 
 def consultar_stream(pregunta: str, fragmentos: List[Chunk], historial: List[dict], modelo: str,

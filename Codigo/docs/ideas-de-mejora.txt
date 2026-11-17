@@ -1,0 +1,171 @@
+VEXA LOCAL - IDEAS DE MEJORA
+============================
+
+Lista de mejoras propuestas, ordenadas por impacto. Las primeras resuelven lo que más se nota hoy
+(el chat lento y la falta de un respaldo probado para recuperar los datos).
+
+Marcas: [IMPLEMENTADO 2026-11-14] = ya está en el código. Lo demás sigue pendiente.
+
+Prioridad recomendada si solo se hacen tres:  (las tres están implementadas)
+  1. [IMPLEMENTADO 2026-11-14] Instalar bge-m3 y encolar el resumen automático.
+  2. [IMPLEMENTADO 2026-11-14] Respaldo automático y clave de recuperación de vault.key.
+     Falta un paso manual: crear la clave de recuperación (ver sección 2).
+  3. [IMPLEMENTADO 2026-11-14] Notificaciones (asignaciones, notas, avance y vencimientos).
+
+
+1. QUE LA IA RESPONDA MEJOR Y MÁS RÁPIDO
+-----------------------------------------
+- [IMPLEMENTADO 2026-11-14] Instalar bge-m3 (ollama pull bge-m3). Sin ese modelo la búsqueda
+  funcionaba solo por palabras exactas (BM25). Con él entiende preguntas formuladas de otra forma:
+  "¿cuándo lo echaron?" encuentra "término de contrato".
+  -> Instalado en el PC servidor. La primera consulta de cada caso tarda más (calcula y guarda,
+     cifrados, los vectores de los documentos); después es rápida. En otro PC servidor hay que
+     instalarlo también.
+- Elegir el modelo de chat desde la app: que el administrador escoja entre llama3.2:1b (rápido)
+  y llama3.2 (mejor calidad), con un aviso de la RAM disponible. Hoy solo se cambia en el .env
+  (VEXA_CHAT_MODEL).
+- Botón "Detener respuesta" en el chat y un tiempo límite que muestre un mensaje en vez de
+  quedarse cargando indefinidamente.
+- Citas clicables: que "demanda.pdf — página 3" abra el documento en esa página.
+- [IMPLEMENTADO 2026-11-14] Encolar el resumen automático para que no compita con las preguntas
+  del chat al arrancar el servidor (causa probable de respuestas que se quedan pegadas).
+  -> Los resúmenes se generan de a uno en una cola (antes se lanzaban todos a la vez) y antes de
+     cada llamada al modelo esperan si alguien está usando el chat o el asistente
+     (backend\vexa\services\llm_priority.py).
+
+
+2. SEGURIDAD Y RESPALDO DE DATOS
+--------------------------------
+- [IMPLEMENTADO 2026-11-14] Respaldo automático real.
+  -> El propio servidor crea un respaldo cifrado cada 24 h (sin detenerse) y conserva los
+     últimos 7, en %USERPROFILE%\VEXA_respaldos. Se ve y se puede forzar en
+     Administración > Respaldos. Configurable con VEXA_BACKUP_DIR / VEXA_BACKUP_HOURS /
+     VEXA_BACKUP_KEEP en el .env.
+  -> PENDIENTE (manual): poner VEXA_BACKUP_DIR en un disco externo y probar una restauración.
+- [IMPLEMENTADO 2026-11-14] Copia segura de vault.key (clave de recuperación).
+  -> Comando (en el PC servidor, desde la carpeta codigo):
+       .\.venv\Scripts\python.exe backend\scripts\clave_recuperacion.py E:\vexa-clave.vexakey
+     Crea la clave protegida con una contraseña. Con ella, un respaldo se puede restaurar en otro
+     PC aunque el servidor se dañe (backup_vexa.py restore ... --clave-recuperacion ...).
+  -> PENDIENTE (manual): ejecutar el comando una vez y guardar el archivo en una USB y la
+     contraseña en otro lugar. La pestaña Respaldos muestra "Falta crearla" hasta que se haga.
+- Cierre de sesión por inactividad (por ejemplo, a los 30 minutos), útil en PCs compartidos.
+- Doble factor (TOTP) opcional para el administrador y el abogado jefe.
+- HTTPS con "tailscale serve" para que las contraseñas no viajen sin cifrar dentro de la red
+  de Tailscale (luego activar VEXA_SESSION_COOKIE_SECURE=true).
+
+
+3. FLUJO DE TRABAJO JURÍDICO
+----------------------------
+- [IMPLEMENTADO 2026-11-14] Notificaciones dentro de la app.
+  -> Campana en la barra superior con el número de avisos sin leer (se actualiza cada minuto) y
+     página Notificaciones. Avisa: caso asignado o reasignado, nota del abogado (al jefe a cargo
+     y a quien creó el caso), cambio de avance, cambio de fecha límite, documentos agregados, y
+     recordatorios "vence en 3 días" y "vencido" (una sola vez por fecha).
+  -> Solo avisa a quien puede ver el caso y nunca incluye contenido de documentos ni notas.
+- Calendario de vencimientos: vista mensual con las fechas límite de todos los casos.
+- Tareas por caso: lista de pendientes con responsable y fecha, que alimente el porcentaje
+  de avance.
+- Evidencias con archivo adjunto: que el abogado pueda adjuntar una foto o un PDF a su nota,
+  no solo texto.
+- Plantillas de escritos con los datos del caso rellenados automáticamente por la IA.
+- Búsqueda global de casos por título, referencia, persona o contenido (respetando permisos).
+
+
+4. EXPERIENCIA DE USO  (toda la sección implementada el 2026-11-14)
+---------------------
+- [IMPLEMENTADO 2026-11-14] Tema claro y oscuro a elección.
+  -> Botón ☀/☾ en la barra superior (también en el inicio de sesión). La elección se recuerda en
+     cada navegador. El tema claro está en frontend\static\css\theme-light.css.
+- [IMPLEMENTADO 2026-11-14] Tabla de casos con filtros y orden.
+  -> En Mis casos, Panel del jefe y Administración > Casos: buscador, filtros por estado, plazo
+     (vencido / vence pronto / al día) y responsable, orden (vence primero/último, avance, nombre)
+     y botón Tarjetas | Tabla (se recuerda). Las tarjetas muestran una franja del color del plazo.
+- [IMPLEMENTADO 2026-11-14] Exportar Seguimiento y Auditoría a Excel o PDF.
+  -> Botón "Exportar a Excel" (.xlsx con colores por plazo/resultado; Auditoría respeta los
+     filtros, hasta 5000 eventos) y botón "Imprimir / PDF" (diálogo de impresión del navegador,
+     con una hoja de estilo limpia para papel). Cada exportación queda en la auditoría.
+- [IMPLEMENTADO 2026-11-14] Arrastrar y soltar al subir documentos, con barra de progreso.
+  -> Todos los campos de archivos son ahora una zona para soltar archivos, muestran la lista con
+     tamaños (y avisan si un formato no es válido) y una barra "Subiendo… %" / "Cifrando y
+     guardando…" (frontend\static\js\upload.js).
+- [IMPLEMENTADO 2026-11-14] Revisión en celular.
+  -> Probado a 390 px de ancho: las tablas (Seguimiento, Auditoría, Usuarios, Casos) se
+     convierten en tarjetas con cada dato rotulado; la navegación se desliza de lado.
+
+
+5. CALIDAD TÉCNICA
+------------------
+- Pruebas en el navegador real (Playwright) para ventanas emergentes, pestañas y el chat;
+  hoy solo se prueba el backend (pytest).
+- Probar en limpio el instalador (desktop\build.ps1) y Docker (docker-compose.yml). Ninguno de
+  los dos se ha ejecutado de verdad todavía.
+- Linter (ruff) y revisión automática en GitHub Actions para que nadie rompa algo al subir
+  cambios.
+- Evaluación del RAG: ampliar backend\evals con preguntas reales para medir si las respuestas
+  mejoran o empeoran al cambiar los prompts (backend\vexa\rag\prompts.py).
+- Ordenar el repositorio: eliminar historico\ y ramas viejas cuando el equipo ya no las necesite.
+
+
+6. PARA LA PRESENTACIÓN DEL CAPSTONE
+------------------------------------
+- Datos de demostración: un script que cree casos, usuarios y documentos ficticios con un solo
+  comando, para mostrar todo sin preparar nada a mano.
+- Panel de métricas para el administrador: casos por estado, tiempo promedio de cierre y
+  carga de trabajo de cada abogado.
+
+
+7. IDEAS AGREGADAS DURANTE EL DESARROLLO
+----------------------------------------
+- [IMPLEMENTADO 2026-11-14] Motivo de cierre de los casos.
+  -> Al cerrar un caso se elige el motivo (completado, acuerdo, desistimiento, abandono,
+     archivado u otro). Solo "Completado" deja el avance en 100 %; los demás conservan el
+     porcentaje real. Los casos cerrados aparecen en gris en el semáforo.
+- [IMPLEMENTADO 2026-11-14] Mensajes del equipo por caso.
+  -> Pestaña "Mensajes del equipo" en cada expediente (junto al Asistente IA) y página Mensajes
+     con todas las conversaciones y sus no leídos. Mensajes rápidos ("Faltan documentos",
+     "Documentos cargados", "Plazo ampliado"...), avisos automáticos cuando se agregan
+     documentos, cambia la fecha, el estado o el responsable, y notificación en la campana.
+     Solo participan quienes pueden ver el caso; los mensajes se guardan cifrados.
+- [IDEA - POR EVALUAR] Importar casos y documentos desde una carpeta.
+  Propuesta: el administrador deja carpetas en una "carpeta de importación" del PC servidor y
+  VEXA toma de ahí los casos y sus archivos, en vez de subirlos uno por uno desde la web.
+  Ejemplo de estructura:
+      C:\VEXA_importar\
+          Despido Perez\            -> se convierte en el caso "Despido Perez"
+              demanda.pdf
+              contrato.docx
+          Arriendo Gomez\           -> otro caso
+              contrato_arriendo.pdf
+
+  ¿Es factible?  SÍ. Gran parte ya existe.
+  - VEXA ya tiene una "carpeta vigilada": lo que se copia en
+    %USERPROFILE%\.vexa_local\carpeta_vigilada\<número de caso>\ se agrega solo a ese caso,
+    cifrado (backend\vexa\services\watcher.py y cases.ingest_watched_file). Hoy solo sirve para
+    casos que YA existen y hay que saber el número del caso.
+  - Lo nuevo sería que una subcarpeta con NOMBRE (no número) cree el caso.
+
+  Cómo se haría (recomendado: con revisión del administrador, no automático):
+  1. Pestaña "Importar" en Administración que lista las subcarpetas encontradas, con sus
+     archivos, tamaños y si hay formatos no admitidos o duplicados.
+  2. Por cada carpeta el administrador completa lo que una carpeta no trae: responsable
+     (abogado o equipo), fecha límite y resumen. Opcional: un archivo caso.txt dentro de la
+     carpeta con esos datos para rellenarlos solos.
+  3. Botón "Importar": crea el caso, cifra y guarda los archivos, notifica al responsable,
+     deja aviso en Mensajes del equipo y en la auditoría.
+  4. La carpeta original se mueve a "importados\<fecha>\" (o se borra, a elección), para que
+     no queden copias sin cifrar y no se importe dos veces.
+
+  Puntos a cuidar:
+  - Los archivos en esa carpeta están SIN cifrar hasta que se importan: debe estar en el PC
+    servidor, fuera de OneDrive/Dropbox, y vaciarse después de importar.
+  - Solo funciona en el PC servidor (los PCs de los abogados no ven esa carpeta). Desde otros PCs
+    se sigue usando la subida por la web, que ya permite arrastrar varios archivos.
+  - Validar formato y tamaño como en la subida web, y detectar duplicados por huella (sha256).
+  - Solo el administrador (o quien tenga cases.manage) puede importar; el jefe solo hacia sus
+    abogados.
+  - Subcarpetas dentro de la carpeta de un caso: decidir si se ignoran o se incluyen.
+
+  Esfuerzo estimado: medio (1 a 2 días): reutiliza la carpeta vigilada, la creación de casos,
+  el cifrado, las notificaciones y la auditoría que ya existen; lo nuevo es la pestaña de revisión
+  y el paso de importación.

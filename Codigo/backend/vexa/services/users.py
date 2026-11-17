@@ -4,7 +4,7 @@ from __future__ import annotations
 import secrets
 import sqlite3
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -104,6 +104,35 @@ def change_own_password(db_path: Path, user_id: int, current: str, new: str, con
         return db.execute("SELECT session_epoch FROM users WHERE id = ?", (user_id,)).fetchone()[0]
 
 
+def update_own_name(db_path: Path, user_id: int, name: str) -> str:
+    """Nombre visible de la cuenta propia (el usuario y el rol no se cambian aquí)."""
+    name = " ".join((name or "").split())
+    if not name:
+        raise UserError("Escribe tu nombre.")
+    if len(name) > 100:
+        raise UserError("El nombre es demasiado largo (máximo 100 caracteres).")
+    with connect(db_path) as db:
+        db.execute("UPDATE users SET name = ? WHERE id = ?", (name, user_id))
+    return name
+
+
+def profile_details(db_path: Path, user_id: int) -> dict:
+    """Datos de la cuenta para «Mi perfil»: fecha de alta, relaciones jefe-abogado y actividad propia."""
+    with connect(db_path) as db:
+        created = db.execute("SELECT created_at FROM users WHERE id = ?", (user_id,)).fetchone()
+        chiefs = [r["name"] for r in db.execute(
+            """SELECT u.name FROM chief_lawyers s JOIN users u ON u.id = s.chief_id
+               WHERE s.lawyer_id = ? AND u.active = 1 ORDER BY u.name""", (user_id,))]
+        lawyers = [dict(r) for r in db.execute(
+            """SELECT u.id, u.name, u.username FROM chief_lawyers s JOIN users u ON u.id = s.lawyer_id
+               WHERE s.chief_id = ? AND u.active = 1 ORDER BY u.name""", (user_id,))]
+        notes = db.execute("SELECT COUNT(*) FROM case_updates WHERE user_id = ?", (user_id,)).fetchone()[0]
+        questions = db.execute("SELECT COUNT(*) FROM chat_messages WHERE user_id = ? AND role = 'user'",
+                               (user_id,)).fetchone()[0]
+    return {"created_at": created["created_at"] if created else None, "chiefs": chiefs,
+            "lawyers": lawyers, "updates_count": notes, "questions_count": questions}
+
+
 def reset_password(db_path: Path, user_id: int, new: str) -> None:
     """Contraseña temporal asignada por un administrador: cierra sus sesiones abiertas y exige cambio."""
     if len(new) < MIN_PASSWORD:
@@ -116,6 +145,11 @@ def reset_password(db_path: Path, user_id: int, new: str) -> None:
 def set_role(db_path: Path, user_id: int, role: str) -> None:
     with connect(db_path) as db:
         db.execute("UPDATE users SET role = ?, session_epoch = session_epoch + 1 WHERE id = ?", (role, user_id))
+        # Las relaciones jefe-abogado solo valen mientras los roles coinciden.
+        if role != "chief_lawyer":
+            db.execute("DELETE FROM chief_lawyers WHERE chief_id = ?", (user_id,))
+        if role != "lawyer":
+            db.execute("DELETE FROM chief_lawyers WHERE lawyer_id = ?", (user_id,))
 
 
 def set_active(db_path: Path, user_id: int, active: bool) -> None:
@@ -124,9 +158,41 @@ def set_active(db_path: Path, user_id: int, active: bool) -> None:
                    (1 if active else 0, user_id))
 
 
-def list_users(db_path: Path):
+def list_users(db_path: Path, supervised_by: Optional[int] = None):
+    """Todas las cuentas o, para un abogado jefe, solo los abogados a su cargo."""
     with connect(db_path) as db:
-        return db.execute("SELECT id, name, username, role, active, created_at FROM users ORDER BY active DESC, name").fetchall()
+        if supervised_by is None:
+            return db.execute("SELECT id, name, username, role, active, created_at FROM users "
+                              "ORDER BY active DESC, name").fetchall()
+        return db.execute("""SELECT u.id, u.name, u.username, u.role, u.active, u.created_at FROM users u
+                             JOIN chief_lawyers s ON s.lawyer_id = u.id WHERE s.chief_id = ?
+                             ORDER BY u.active DESC, u.name""", (supervised_by,)).fetchall()
+
+
+# ------------------------------------------------------- abogados a cargo de un jefe
+def add_supervision(db_path: Path, chief_id: int, lawyer_id: int) -> None:
+    with connect(db_path) as db:
+        db.execute("INSERT OR IGNORE INTO chief_lawyers(chief_id, lawyer_id) VALUES (?, ?)", (chief_id, lawyer_id))
+
+
+def set_supervised_lawyers(db_path: Path, chief_id: int, lawyer_ids: Iterable[int]) -> List[int]:
+    """Reemplaza los abogados a cargo del jefe (ids ya validados por policy.check_supervision)."""
+    lawyer_ids = list(lawyer_ids)
+    with connect(db_path) as db:
+        db.execute("DELETE FROM chief_lawyers WHERE chief_id = ?", (chief_id,))
+        db.executemany("INSERT INTO chief_lawyers(chief_id, lawyer_id) VALUES (?, ?)",
+                       [(chief_id, lawyer_id) for lawyer_id in lawyer_ids])
+    return lawyer_ids
+
+
+def supervision_map(db_path: Path) -> Dict[int, List[int]]:
+    """{id del jefe: [ids de sus abogados]} para el panel del administrador."""
+    with connect(db_path) as db:
+        rows = db.execute("SELECT chief_id, lawyer_id FROM chief_lawyers ORDER BY chief_id").fetchall()
+    result: Dict[int, List[int]] = {}
+    for row in rows:
+        result.setdefault(int(row["chief_id"]), []).append(int(row["lawyer_id"]))
+    return result
 
 
 def assignable_users(db_path: Path):
@@ -172,11 +238,15 @@ def set_team_members(db_path: Path, team_id: int, member_ids: Iterable[int]) -> 
         return members
 
 
-def list_teams(db_path: Path):
+def list_teams(db_path: Path, only_ids: Optional[Iterable[int]] = None):
+    """Equipos con sus integrantes; only_ids limita la lista (equipos que un jefe puede manejar)."""
     with connect(db_path) as db:
         teams = db.execute("SELECT id, name FROM teams ORDER BY name").fetchall()
         members = db.execute("SELECT m.team_id, u.id, u.name FROM team_members m JOIN users u ON u.id = m.user_id "
                              "ORDER BY u.name").fetchall()
+    if only_ids is not None:
+        keep = set(only_ids)
+        teams = [t for t in teams if t["id"] in keep]
     by_team = {}
     for row in members:
         by_team.setdefault(row["team_id"], []).append({"id": row["id"], "name": row["name"]})

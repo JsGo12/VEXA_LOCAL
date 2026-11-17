@@ -61,6 +61,12 @@ class Settings:
     tailscale_port: Optional[int] = None
     tailscale_host: Optional[str] = None
     max_file_size: int = 30 * 1024 * 1024
+    # Días que se conserva el registro de auditoría (0 = no se borra nunca).
+    audit_retention_days: int = 14
+    # Respaldo automático del servidor (VEXA_BACKUP_*). backup_hours=0 lo desactiva.
+    backup_dir: Path = Path.home() / "VEXA_respaldos"
+    backup_hours: int = 24
+    backup_keep: int = 7
     env_file: Optional[Path] = None
 
     @property
@@ -218,6 +224,14 @@ def load_settings(environ: Optional[Mapping[str, str]] = None, env_file: Optiona
     if ts_host is not None and any(ch in ts_host for ch in "/:@ "):
         raise ConfigError("TAILSCALE_HOST debe ser solo un nombre de equipo (MagicDNS), sin esquema ni puerto.")
 
+    backup_dir = Path(get("VEXA_BACKUP_DIR") or (Path.home() / "VEXA_respaldos")).expanduser()
+    try:
+        backup_dir.resolve().relative_to(data_dir.resolve())
+    except ValueError:
+        pass
+    else:
+        raise ConfigError("VEXA_BACKUP_DIR debe estar fuera de la carpeta de datos (idealmente en un disco externo).")
+
     return Settings(
         env=env, host="127.0.0.1" if host.lower() == "localhost" else host, port=port, threads=threads,
         server=server, log_level=log_level, data_dir=data_dir, db_path=db_path, watch_dir=watch_dir,
@@ -230,4 +244,8 @@ def load_settings(environ: Optional[Mapping[str, str]] = None, env_file: Optiona
         admin_username=get("VEXA_ADMIN_USERNAME") or "admin", admin_password=admin_password,
         tailscale_enabled=ts_enabled, tailscale_bind_address=ts_bind, tailscale_port=ts_port,
         tailscale_host=ts_host, env_file=used_file,
+        audit_retention_days=_int("VEXA_AUDIT_RETENTION_DAYS", get("VEXA_AUDIT_RETENTION_DAYS"), 14, 0, 3650),
+        backup_dir=backup_dir,
+        backup_hours=_int("VEXA_BACKUP_HOURS", get("VEXA_BACKUP_HOURS"), 24, 0, 24 * 30),
+        backup_keep=_int("VEXA_BACKUP_KEEP", get("VEXA_BACKUP_KEEP"), 7, 1, 365),
     )

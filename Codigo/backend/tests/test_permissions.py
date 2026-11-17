@@ -1,7 +1,7 @@
 """Perfil abogado jefe, permisos granulares, precedencia documental y prevención de escalada."""
 import pytest
 
-from helpers import CSRF, _client_as, _web_app, add_case, add_document, add_user, admin_id, grant
+from helpers import CSRF, _client_as, _web_app, add_case, add_document, add_user, admin_id, grant, supervise
 from vexa.permissions import policy
 from vexa.permissions.catalog import ROLE_PERMISSIONS
 
@@ -27,7 +27,10 @@ def _user(web, user_id):
 
 
 def test_initial_policy_matrix_is_explicit():
-    assert ROLE_PERMISSIONS["lawyer"] == {"cases.view", "documents.view", "documents.download", "cases.update_progress"}
+    assert ROLE_PERMISSIONS["lawyer"] == {"cases.view", "documents.view", "documents.download", "cases.add_note",
+                                          "cases.message"}
+    assert "cases.update_progress" not in ROLE_PERMISSIONS["lawyer"]      # el avance lo fijan jefe y admin
+    assert {"cases.update_progress", "cases.add_note"} <= ROLE_PERMISSIONS["chief_lawyer"]
     assert "documents.upload" not in ROLE_PERMISSIONS["lawyer"]
     assert "assistant.use" in ROLE_PERMISSIONS["chief_lawyer"]
     assert "assistant.use" not in ROLE_PERMISSIONS["lawyer"]
@@ -119,6 +122,7 @@ def test_user_cannot_elevate_own_permissions_or_role(firm):
 
 def test_chief_can_only_grant_what_they_hold(firm):
     web, ids = firm
+    supervise(web, ids["chief"], ids["other"])
     client = _client_as(web, ids["chief"])
     client.post(f"/admin/permissions/users/{ids['other']}/grants", data={"scope_type": "firm", "csrf_token": CSRF})
     client.post(f"/admin/permissions/users/{ids['other']}/grants",
@@ -149,14 +153,21 @@ def test_chief_cannot_manage_admins_or_create_privileged_accounts(firm):
 
 def test_chief_can_manage_lawyers(firm):
     web, ids = firm
+    supervise(web, ids["chief"], ids["other"])
     client = _client_as(web, ids["chief"])
     assert client.get("/admin").status_code == 200
     client.post("/admin/users", data={"name": "Nueva", "username": "nueva", "password": "ContrasenaLarga1",
                                       "role": "lawyer", "csrf_token": CSRF})
     client.post(f"/admin/users/{ids['other']}/active", data={"active": "0", "csrf_token": CSRF})
+    client.post(f"/admin/users/{ids['lawyer']}/active", data={"active": "0", "csrf_token": CSRF})  # no está a su cargo
     with web.connect_db() as db:
-        assert db.execute("SELECT role FROM users WHERE username = 'nueva'").fetchone()[0] == "lawyer"
+        nueva = db.execute("SELECT id, role FROM users WHERE username = 'nueva'").fetchone()
+        assert nueva["role"] == "lawyer"
+        # La cuenta creada por el jefe queda a su cargo.
+        assert db.execute("SELECT 1 FROM chief_lawyers WHERE chief_id = ? AND lawyer_id = ?",
+                          (ids["chief"], nueva["id"])).fetchone() is not None
         assert db.execute("SELECT active FROM users WHERE id = ?", (ids["other"],)).fetchone()[0] == 0
+        assert db.execute("SELECT active FROM users WHERE id = ?", (ids["lawyer"],)).fetchone()[0] == 1
 
 
 def test_lawyer_cannot_reach_permission_or_audit_management(firm):

@@ -6,9 +6,11 @@ import secrets
 from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
 
 from vexa import runtime
-from vexa.database import store
-from vexa.permissions import MANAGEMENT_PERMISSIONS, can, login_required
+from vexa.database import connect, store
+from vexa.permissions import MANAGEMENT_PERMISSIONS, can, login_required, policy
+from vexa.permissions.catalog import PERMISSIONS
 from vexa.services import audit
+from vexa.services import cases as case_service
 from vexa.services import users as user_service
 
 bp = Blueprint("auth", __name__)
@@ -73,10 +75,35 @@ def logout():
     return redirect(url_for("auth.login"))
 
 
+@bp.route("/account", methods=["GET", "POST"])
+@login_required
+def profile():
+    """Mi perfil: datos de la cuenta, nombre visible, casos, actividad, permisos y seguridad."""
+    settings = runtime().settings
+    if request.method == "POST":
+        try:
+            user_service.update_own_name(settings.db_path, g.user["id"], request.form.get("name", ""))
+            audit.record("users.profile_update", "ok", resource_type="user", resource_id=g.user["id"])
+            flash("Nombre actualizado.", "success")
+        except user_service.UserError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("auth.profile"))
+    with connect(settings.db_path) as db:
+        perms = policy.effective_permissions(db, g.user)
+        scope = policy.case_scope(db, g.user) if "cases.view" in perms else {}
+    follow = case_service.follow_up(settings.db_path, case_ids=scope)
+    return render_template(
+        "profile.html", details=user_service.profile_details(settings.db_path, g.user["id"]),
+        cases=follow["cases"][:6], total_cases=len(follow["cases"]),
+        overdue=len(follow["overdue"]), due_soon=len(follow["due_soon"]),
+        permissions=[(p, PERMISSIONS[p]) for p in PERMISSIONS if p in perms])
+
+
 @bp.route("/account/password", methods=["GET", "POST"])
 @login_required
 def change_password():
     forced = bool(g.user["must_change_password"])
+    from_profile = request.form.get("next") == "profile" and not forced   # solo destino fijo, sin redirección abierta
     if request.method == "POST":
         try:
             epoch = user_service.change_own_password(
@@ -85,10 +112,12 @@ def change_password():
         except user_service.UserError as exc:
             audit.record("auth.password_change", "denied", reason=str(exc))
             flash(str(exc), "error")
+            if from_profile:
+                return redirect(url_for("auth.profile") + "#seguridad")
             return render_template("password.html", forced=forced)
         session["epoch"] = epoch            # esta sesión sigue; las demás quedan invalidadas
         session["csrf_token"] = secrets.token_urlsafe(32)
         audit.record("auth.password_change", "ok")
         flash("Contraseña actualizada. Las demás sesiones abiertas se cerraron.", "success")
-        return redirect(url_for("auth.index"))
+        return redirect(url_for("auth.profile") if from_profile else url_for("auth.index"))
     return render_template("password.html", forced=forced)

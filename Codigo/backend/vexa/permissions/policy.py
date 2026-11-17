@@ -11,7 +11,13 @@ Alcance de datos (qué expedientes puede ver), unión de:
     grant_case  concesión explícita de ese caso         (access_grants scope_type='case')
     grant_team  concesión explícita de un equipo         (access_grants scope_type='team')
     firm        concesión explícita de toda la firma     (access_grants scope_type='firm')
+    supervised  caso asignado a un abogado a cargo del usuario (chief_lawyers), directamente o
+                a un equipo del que ese abogado es integrante. Lo concede el administrador al
+                asignarle abogados a un abogado jefe.
 El rol nunca concede alcance de datos por sí mismo.
+
+Abogado jefe (no administrador): solo administra a los abogados que el administrador le asignó
+(cuentas, permisos, equipos formados solo por ellos y asignación de casos a ellos o a esos equipos).
 
 Acceso a un documento (en este orden; la primera regla que aplica decide):
     1. Sin documents.view (o documents.download para descargar)  -> DENEGADO
@@ -35,6 +41,7 @@ ASSISTANT_PATH_PERMISSION = {
     "team": "assistant.team_access",
     "grant_team": "assistant.team_access",
     "firm": "assistant.firm_access",
+    "supervised": "assistant.team_access",
 }
 
 
@@ -85,7 +92,43 @@ def case_scope(db: sqlite3.Connection, user) -> Dict[int, Set[str]]:
                       WHERE g.user_id = ?""", (uid,)), "grant_team")
     if db.execute("SELECT 1 FROM access_grants WHERE user_id = ? AND scope_type = 'firm'", (uid,)).fetchone():
         add(db.execute("SELECT id FROM cases"), "firm")
+    add(db.execute("""SELECT a.case_id FROM case_assignments a
+                      JOIN chief_lawyers s ON s.lawyer_id = a.user_id WHERE s.chief_id = ?""", (uid,)), "supervised")
+    add(db.execute("""SELECT DISTINCT a.case_id FROM case_assignments a
+                      JOIN team_members m ON m.team_id = a.team_id
+                      JOIN chief_lawyers s ON s.lawyer_id = m.user_id WHERE s.chief_id = ?""", (uid,)), "supervised")
     return scope
+
+
+# ------------------------------------------------------------ abogados a cargo del jefe
+def supervised_lawyer_ids(db: sqlite3.Connection, chief_id: int) -> Set[int]:
+    """Abogados activos que el administrador asignó a este abogado jefe."""
+    return {int(r[0]) for r in db.execute(
+        """SELECT s.lawyer_id FROM chief_lawyers s JOIN users u ON u.id = s.lawyer_id
+           WHERE s.chief_id = ? AND u.active = 1 AND u.role = 'lawyer'""", (chief_id,))}
+
+
+def manageable_people(db: sqlite3.Connection, actor) -> List[sqlite3.Row]:
+    """Personas a las que el actor puede asignar casos o incluir en equipos."""
+    if actor["role"] == "admin":
+        return db.execute("SELECT id, name, username, role FROM users WHERE active = 1 AND role IN "
+                          "('lawyer', 'chief_lawyer') ORDER BY name").fetchall()
+    return db.execute("""SELECT u.id, u.name, u.username, u.role FROM users u
+                         JOIN chief_lawyers s ON s.lawyer_id = u.id
+                         WHERE s.chief_id = ? AND u.active = 1 AND u.role = 'lawyer' ORDER BY u.name""",
+                      (_uid(actor),)).fetchall()
+
+
+def _team_member_ids(db: sqlite3.Connection, team_id: int) -> Set[int]:
+    return {int(r[0]) for r in db.execute("SELECT user_id FROM team_members WHERE team_id = ?", (team_id,))}
+
+
+def team_is_manageable(db: sqlite3.Connection, actor, team_id: int) -> bool:
+    """El administrador maneja todos; el jefe, solo equipos formados únicamente por sus abogados."""
+    if actor["role"] == "admin":
+        return True
+    members = _team_member_ids(db, team_id)
+    return bool(members) and members <= supervised_lawyer_ids(db, _uid(actor))
 
 
 def case_paths(db: sqlite3.Connection, user, case_id: int) -> Set[str]:
@@ -164,13 +207,63 @@ def _target(db: sqlite3.Connection, target_id: int):
 
 
 def check_can_manage_user(db: sqlite3.Connection, actor, target_id: int):
-    """Nadie se administra a sí mismo; quien no es admin solo administra cuentas de abogado."""
+    """Nadie se administra a sí mismo; quien no es admin solo administra a los abogados a su cargo."""
     target = _target(db, target_id)
     if int(target["id"]) == _uid(actor):
         raise PolicyError("No puedes modificar tus propios permisos, rol o estado.")
-    if actor["role"] != "admin" and target["role"] != "lawyer":
-        raise PolicyError("Solo un administrador puede modificar cuentas de administración o de abogado jefe.")
+    if actor["role"] != "admin":
+        if target["role"] != "lawyer":
+            raise PolicyError("Solo un administrador puede modificar cuentas de administración o de abogado jefe.")
+        if db.execute("SELECT 1 FROM chief_lawyers WHERE chief_id = ? AND lawyer_id = ?",
+                      (_uid(actor), int(target["id"]))).fetchone() is None:
+            raise PolicyError("Solo puedes administrar a los abogados que el administrador te asignó.")
     return target
+
+
+def check_supervision(db: sqlite3.Connection, actor, chief_id: int, lawyer_ids: Iterable[int]) -> List[int]:
+    """Solo el administrador asigna abogados a un abogado jefe. Devuelve los ids válidos."""
+    if actor["role"] != "admin":
+        raise PolicyError("Solo un administrador asigna abogados a un abogado jefe.")
+    chief = _target(db, chief_id)
+    if chief["role"] != "chief_lawyer":
+        raise PolicyError("Solo se pueden asignar abogados a una cuenta de abogado jefe.")
+    wanted = list(dict.fromkeys(int(i) for i in lawyer_ids))
+    if not wanted:
+        return []
+    marks = ",".join("?" for _ in wanted)
+    valid = [int(r[0]) for r in db.execute(
+        f"SELECT id FROM users WHERE role = 'lawyer' AND id IN ({marks})", wanted)]
+    if len(valid) != len(wanted):
+        raise PolicyError("Solo se pueden asignar cuentas con rol de abogado/a.")
+    return valid
+
+
+def check_team_members(db: sqlite3.Connection, actor, member_ids: Iterable[int], team_id: Optional[int] = None) -> None:
+    """El jefe solo arma equipos con sus abogados y solo edita equipos formados por ellos."""
+    if actor["role"] == "admin":
+        return
+    if team_id is not None and not team_is_manageable(db, actor, team_id):
+        raise PolicyError("Solo puedes modificar equipos formados por abogados a tu cargo.")
+    allowed = supervised_lawyer_ids(db, _uid(actor))
+    if not {int(m) for m in member_ids} <= allowed:
+        raise PolicyError("Solo puedes incluir en equipos a los abogados que el administrador te asignó.")
+
+
+def check_assignee(db: sqlite3.Connection, actor, assignment_type: str, assignee_id: int) -> None:
+    """El jefe solo asigna casos a sus abogados o a equipos formados por ellos."""
+    if actor["role"] == "admin":
+        return
+    if assignment_type == "user":
+        if int(assignee_id) not in supervised_lawyer_ids(db, _uid(actor)):
+            raise PolicyError("Solo puedes asignar casos a los abogados que el administrador te asignó.")
+    elif not team_is_manageable(db, actor, int(assignee_id)):
+        raise PolicyError("Solo puedes asignar casos a equipos formados por abogados a tu cargo.")
+
+
+def check_case_manageable(db: sqlite3.Connection, actor, case_id: int) -> None:
+    """El jefe solo reasigna casos dentro de su alcance."""
+    if actor["role"] != "admin" and int(case_id) not in case_scope(db, actor):
+        raise PolicyError("Solo puedes reasignar casos dentro de tu alcance.")
 
 
 def check_role_change(db: sqlite3.Connection, actor, target_id: int, new_role: str):

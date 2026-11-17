@@ -1,0 +1,39 @@
+/* Mi perfil */
+.profile-hero { display: flex; align-items: center; gap: 20px; padding: 24px 26px; margin-bottom: 14px; background: radial-gradient(ellipse at 0% 0%, #2a2f63 0, transparent 55%), linear-gradient(145deg, #171f2e, #131a26); }
+.profile-avatar { flex-shrink: 0; display: grid; place-items: center; width: 72px; height: 72px; border-radius: 22px; font: 800 26px Manrope, sans-serif; color: #fff; background: linear-gradient(140deg, #8c8dff, #5c61e8); box-shadow: 0 10px 30px #5c61e855; }
+.profile-avatar.role-chief_lawyer { background: linear-gradient(140deg, #5fc7c9, #2f8f9c); box-shadow: 0 10px 30px #2f8f9c55; }
+.profile-avatar.role-lawyer { background: linear-gradient(140deg, #81d6ac, #3e9b72); box-shadow: 0 10px 30px #3e9b7255; }
+.profile-id h1 { font: 700 26px Manrope, sans-serif; letter-spacing: -.03em; margin: 6px 0 6px; }
+.profile-id p { color: var(--muted); font-size: 12px; margin: 0; }
+.role-pill { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 10px; font-weight: 700; color: #c8c9ff; background: #7779f722; border: 1px solid #7779f755; }
+.role-pill.role-chief_lawyer { color: #9fe3e4; background: #5fc7c91c; border-color: #5fc7c955; }
+.role-pill.role-lawyer { color: #a6e8c6; background: #81d6ac1c; border-color: #81d6ac55; }
+.profile-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.profile-stat { display: grid; gap: 4px; padding: 15px 16px; }
+.profile-stat strong { font: 800 24px Manrope, sans-serif; }
+.profile-stat span { font-size: 10px; color: var(--muted); }
+.profile-stat.stat-danger strong { color: var(--red); }
+.profile-stat.stat-warning strong { color: #f2c77b; }
+.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.profile-card { padding: 20px; }
+.profile-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.profile-card-head h2 { font: 700 15px Manrope, sans-serif; margin: 0; }
+.profile-cases { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.profile-cases li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--deadline, var(--line)); border-radius: 10px; background: #0f1520; }
+.profile-cases li a { flex: 1; min-width: 0; }
+.profile-cases strong { display: block; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-cases small { display: block; font-size: 10px; color: var(--muted); margin-top: 2px; }
+.deadline-dot { font-size: 10px; font-weight: 700; color: var(--deadline, var(--muted)); white-space: nowrap; }
+.profile-cases .deadline-vencido { --deadline: var(--red); }
+.profile-cases .deadline-pronto { --deadline: #f2c77b; }
+.profile-cases .deadline-al_dia { --deadline: var(--green); }
+.stack-form input:disabled { opacity: .6; cursor: not-allowed; }
+.profile-relation { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; }
+.profile-relation p { font-size: 12px; color: #c7d0df; margin: 6px 0 0; }
+.chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { padding: 4px 9px; border-radius: 99px; font-size: 10px; background: #ffffff0d; border: 1px solid var(--line); color: #d3dae6; }
+.permission-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.permission-list li { display: flex; gap: 8px; align-items: flex-start; font-size: 11px; line-height: 1.45; color: #c7d0df; }
+.perm-check { flex-shrink: 0; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 5px; font-size: 10px; color: var(--green); background: #81d6ac1c; }
+@media (max-width: 800px) { .profile-grid { grid-template-columns: 1fr; } .profile-hero { flex-direction: column; align-items: flex-start; } }
+.profile-cases .deadline-cerrado { --deadline: var(--muted); }

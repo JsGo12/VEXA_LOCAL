@@ -11,16 +11,13 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from vexa.rag import core as rag_core
 from vexa.rag import hybrid as rag_hybrid
+from vexa.rag import prompts
 from vexa.rag.core import Chunk
 
 MAX_CASE_CARDS = 5
 CARD_MAX_CHARS = 450
 
-PROMPT_FIRMA = rag_hybrid.PROMPT_SISTEMA + (
-    "- Los fragmentos provienen de DISTINTOS expedientes; la etiqueta de la fuente indica el expediente.\n"
-    "- Indica siempre a qué expediente corresponde cada dato y no mezcles datos de expedientes distintos.\n"
-    "- Las 'Fichas de expediente' son metadatos internos (responsable, fecha límite, resumen).\n"
-)
+PROMPT_FIRMA = prompts.PROMPT_ASISTENTE_FIRMA   # texto en vexa/rag/prompts.py
 
 
 @dataclass(frozen=True)

@@ -20,12 +20,13 @@ MAGIC = b"VEXAENC1"
 TEXT_PREFIX = "enc:"
 _lock = threading.Lock()
 _fernet = None
+_key: bytes | None = None
 _dir: Path | None = None
 
 
 def configure(data_dir) -> None:
-    global _dir, _fernet
-    _dir, _fernet = Path(data_dir), None
+    global _dir, _fernet, _key
+    _dir, _fernet, _key = Path(data_dir), None, None
 
 
 def _dpapi(data: bytes, protect: bool) -> bytes:
@@ -48,7 +49,7 @@ def _dpapi(data: bytes, protect: bool) -> bytes:
 
 
 def _get() -> Fernet:
-    global _fernet
+    global _fernet, _key
     with _lock:
         if _fernet is not None:
             return _fernet
@@ -81,8 +82,28 @@ def _get() -> Fernet:
                 # A second process created the key while this one prepared it.
                 existing = ruta.read_bytes()
                 key = _dpapi(existing[6:], False) if existing.startswith(b"DPAPI:") else existing
+        _key = key
         _fernet = Fernet(key)
         return _fernet
+
+
+
+def key_bytes() -> bytes:
+    """Clave actual del vault (solo para exportar la clave de recuperación desde la línea de comandos)."""
+    _get()
+    return _key
+
+
+def key_fingerprint(key: bytes | None = None) -> str:
+    """Huella corta y no reversible de la clave, para comprobar que una copia corresponde a esta clave."""
+    import hashlib
+    return hashlib.sha256(key if key is not None else key_bytes()).hexdigest()[:16]
+
+
+def protected_key_file(key: bytes) -> bytes:
+    """Contenido de vault.key para ESTA cuenta (DPAPI en Windows), igual que al crear una clave nueva."""
+    Fernet(key)                                   # valida el formato antes de escribir nada
+    return b"DPAPI:" + _dpapi(key, True) if sys.platform == "win32" else key
 
 
 def _write_atomic(path: Path, data: bytes) -> None:

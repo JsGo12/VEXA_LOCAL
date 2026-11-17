@@ -1,13 +1,29 @@
 {% extends 'base.html' %}{% block title %}Auditoría · VEXA{% endblock %}
 {% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/management.css') }}">{% endblock %}
 {% block content %}
-<div class="page-heading"><div><span class="eyebrow">REGISTRO DE AUDITORÍA</span><h1>Actividad del sistema</h1><p>Inicios de sesión, cambios de cuentas y permisos, accesos a expedientes, descargas, uso del asistente y accesos denegados. No incluye contraseñas ni contenido documental.</p></div></div>
-<form method="get" class="filter-bar"><label>Acción<select name="action"><option value="">Todas</option>{% for a in actions %}<option value="{{ a }}" {% if filters.action == a %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></label>
+<div class="page-heading"><div><span class="eyebrow">REGISTRO DE AUDITORÍA</span><h1>Actividad del sistema</h1><p>Inicios de sesión, cambios de cuentas y permisos, accesos a expedientes, descargas, uso del asistente y accesos denegados. No incluye contraseñas ni contenido documental.</p></div>
+  <div class="toolbar-actions no-print"><a class="action-btn" href="{{ url_for('audit.export', **request.args.to_dict()) }}" title="Exporta los eventos que cumplen los filtros actuales">⤓ Exportar a Excel</a><button type="button" class="action-btn action-btn-ghost" data-print>⎙ Imprimir / PDF</button></div></div>
+<form method="get" class="filter-bar"><label>Acción<select name="action"><option value="">Todas</option>{% for key, label in actions %}<option value="{{ key }}" {% if filters.action == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
   <label>Usuario<select name="user_id"><option value="">Todos</option>{% for u in users %}<option value="{{ u.id }}" {% if filters.user_id == u.id %}selected{% endif %}>{{ u.name }}</option>{% endfor %}</select></label>
   <label>Resultado<select name="result"><option value="">Todos</option>{% for r, label in [('ok','Correcto'),('denied','Denegado'),('error','Error')] %}<option value="{{ r }}" {% if filters.result == r %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
   <button class="button button-secondary">Filtrar</button></form>
-<div class="table-wrap"><table class="data-table audit-table"><thead><tr><th>Fecha (UTC)</th><th>Usuario</th><th>Acción</th><th>Recurso</th><th>Resultado</th><th>Motivo / detalle</th><th>IP</th></tr></thead><tbody>
-{% for r in rows %}<tr class="result-{{ r.result }}"><td>{{ r.created_at.replace('T', ' ')[:19] }}</td><td>{{ r.username or '—' }}</td><td><code>{{ r.action }}</code></td><td>{{ r.resource_type or '' }}{% if r.resource_id %} #{{ r.resource_id }}{% endif %}</td><td>{{ {'ok': 'Correcto', 'denied': 'Denegado', 'error': 'Error'}[r.result] }}</td><td>{{ r.reason or '' }}{% if r.details %} <small>{{ r.details }}</small>{% endif %}</td><td>{{ r.ip or '' }}</td></tr>
-{% else %}<tr><td colspan="7" class="empty-inline">Sin eventos para estos filtros.</td></tr>{% endfor %}
+<div class="table-wrap"><table class="data-table responsive-table audit-table"><thead><tr><th>Fecha y hora</th><th>Persona</th><th>Acción</th><th>Qué se hizo</th><th>Resultado</th><th>Origen</th></tr></thead><tbody>
+{% for r in rows %}<tr class="result-{{ r.result }}">
+  <td data-label="Fecha y hora" class="audit-when">{{ r.when }}</td>
+  <td data-label="Persona"><strong>{{ r.who }}</strong>{% if r.username %}<small>@{{ r.username }}</small>{% endif %}</td>
+  <td data-label="Acción"><span class="audit-action audit-{{ r.action.split('.')[0] }}">{{ r.label }}</span></td>
+  <td data-label="Qué se hizo" class="audit-what">{{ r.sentence }}{% if r.reason and r.result != 'ok' %}<small class="audit-reason">Motivo: {{ r.reason }}</small>{% endif %}</td>
+  <td data-label="Resultado"><span class="audit-result">{{ r.result_label }}</span></td>
+  <td data-label="Origen" class="audit-ip">{{ 'Este equipo' if r.ip in ('127.0.0.1', '::1') else (('Tailscale · ' ~ r.ip) if r.ip.startswith('100.') else (r.ip or '—')) }}</td></tr>
+{% else %}<tr><td data-label="Fecha y hora" colspan="6" class="empty-inline">Sin eventos para estos filtros.</td></tr>{% endfor %}
 </tbody></table></div>
+{% if pagination.last > 1 %}<nav class="pagination" aria-label="Páginas del registro">
+  {% if pagination.current > 1 %}<a class="action-btn action-btn-ghost" href="{{ page_url(pagination.current - 1) }}">← Anterior</a>{% else %}<span class="action-btn action-btn-ghost is-disabled">← Anterior</span>{% endif %}
+  {% for n in pagination.pages %}{% if n is none %}<span class="page-gap">…</span>{% elif n == pagination.current %}<span class="page-number is-current" aria-current="page">{{ n }}</span>{% else %}<a class="page-number" href="{{ page_url(n) }}">{{ n }}</a>{% endif %}{% endfor %}
+  {% if pagination.current < pagination.last %}<a class="action-btn action-btn-ghost" href="{{ page_url(pagination.current + 1) }}">Siguiente →</a>{% else %}<span class="action-btn action-btn-ghost is-disabled">Siguiente →</span>{% endif %}
+</nav>{% endif %}
+<p class="hint">Mostrando {{ pagination.first_item }}–{{ pagination.last_item }} de {{ pagination.total }} evento(s). Hora del servidor.
+  {% if retention_days %}Los eventos se conservan {{ retention_days }} días y luego se borran solos.{% else %}Los eventos no se borran automáticamente.{% endif %}
+  Los títulos de casos y documentos se muestran solo si están dentro de tu alcance.</p>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/print.js') }}"></script>{% endblock %}

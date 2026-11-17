@@ -1,0 +1,113 @@
+/* Tema claro. Solo se aplica con <html data-theme="light"> (botón ☀/☾ de la barra superior).
+   El tema oscuro es el diseño base; aquí se reemplazan fondos, textos y bordes que en los demás
+   archivos están fijos para fondo oscuro. */
+html[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f3f5fa; --panel: #ffffff; --panel-2: #f6f8fc; --line: #dbe1ec; --text: #18213a; --muted: #5d6880;
+  --accent: #5b5ef0; --accent-soft: #4c50d6; --green: #1d8656; --red: #c73b45;
+  --amber: #a86a00; --teal: #157f86; --surface-sunken: #f6f8fc;
+}
+html[data-theme="light"] body { background: radial-gradient(ellipse at 15% -10%, #e2e5fb 0, transparent 40%), var(--bg); color: var(--text); }
+
+/* ---------------------------------------------------------------- superficies */
+html[data-theme="light"] .topbar { background: #ffffffee; border-bottom-color: var(--line); }
+html[data-theme="light"] :is(.panel, .case-card, .summary-card, .admin-tab, .case-overview, .table-wrap,
+  .action-dialog, .case-dialog, .perm-rules-hint, .notif-item, .doc-head, .perm-sidebar) {
+  background: #fff; border-color: var(--line); box-shadow: 0 6px 20px #1a23400d;
+}
+html[data-theme="light"] :is(.perm-hero, .profile-hero) { background: radial-gradient(ellipse at 0% 0%, #e6e7fd 0, transparent 60%), #fff; }
+html[data-theme="light"] :is(.pick-card, .choice-card, .grant-chip, .update-list li, .profile-cases li, .perm-stats div,
+  .segmented, .chat-welcome, .backup-cmd, .case-context span, .who, .side-item:hover, .data-table tr:hover td) { background: var(--surface-sunken); }
+html[data-theme="light"] :is(.stack-form input, .stack-form select, .stack-form textarea, .auth-card input, .question-form input,
+  .picker-search, .dialog-inline select, .dialog-inline input, .inline-form select, .inline-form input, .filter-bar select,
+  .filter-bar input, .collection-bar select, .collection-bar input) { background: #fff; color: var(--text); border-color: #cfd6e4; }
+html[data-theme="light"] .stack-form select option { background: #fff; }
+html[data-theme="light"] :is(.action-dialog, .case-dialog)::backdrop { background: #1a234055; }
+html[data-theme="light"] .data-table td { border-bottom-color: #edf0f6; }
+html[data-theme="light"] .data-table th { color: var(--muted); border-bottom-color: var(--line); }
+
+/* ------------------------------------------------------------------- textos */
+html[data-theme="light"] :is(.stack-form label, .auth-card label, .filter-bar label, .picker-label, .overview-copy p,
+  .summary-card-text, .case-dialog-section > p, .update-list p, .audit-when, .audit-what, .perm-sidebar h2, .doc-col h4,
+  .profile-relation p, .permission-list li, .backup-card h3, .backup-path, .case-assignee strong, .subsection h3,
+  .scope-box summary, .conversation-list button, .page-number, .chip, .case-context span) { color: var(--text); }
+html[data-theme="light"] .case-summary-preview { color: #4a556b; }
+html[data-theme="light"] :is(.text-link, .download-link, .summary-card-action, .picker-link, .source-case,
+  .back-link:hover, .account-link:hover) { color: var(--accent-soft); }
+html[data-theme="light"] :is(.case-icon, .summary-card-icon, .empty-symbol, .admin-tab-icon) { background: #eceefe; color: var(--accent-soft); }
+html[data-theme="light"] :is(.admin-tab-count, .count-pill, .subsection h3 span, .picker-count, .local-badge) {
+  background: #eceefe; color: var(--accent-soft); border-color: #cfd1fb;
+}
+html[data-theme="light"] .admin-tab.is-active { background: linear-gradient(145deg, #eef0ff, #e3e6ff); border-color: var(--accent); box-shadow: 0 0 0 1px #5b5ef033, 0 8px 22px #1a23401a; }
+html[data-theme="light"] .admin-tab.is-active .admin-tab-icon { color: #fff; }
+html[data-theme="light"] .side-item.is-active { background: linear-gradient(145deg, #eef0ff, #e3e6ff); border-color: var(--accent); }
+html[data-theme="light"] .ai-summary { color: #2a5db0 !important; }
+html[data-theme="light"] .doc-icon { background: #fde8e8; color: #b33a3a; }
+html[data-theme="light"] .avatar { background: #dcf3e8; color: #1d6b48; }
+html[data-theme="light"] .avatar-team { background: #e7e5fb; color: #4a43a6; }
+
+/* ------------------------------------------------------------------- botones */
+html[data-theme="light"] .button-secondary { color: var(--accent-soft); background: #eef0ff; border-color: #c9ccfb; }
+html[data-theme="light"] .button-quiet { color: var(--muted); border-color: var(--line); }
+html[data-theme="light"] .action-btn { color: var(--accent-soft); background: #eef0ff; border-color: #c9ccfb; }
+html[data-theme="light"] .action-btn:hover { background: #e2e5ff; border-color: var(--accent); }
+html[data-theme="light"] .action-btn-primary { color: #fff; background: linear-gradient(120deg, #6466f1, #5154e6); border-color: transparent; }
+html[data-theme="light"] .action-btn-ghost { color: var(--muted); background: #fff; border-color: var(--line); }
+html[data-theme="light"] .action-btn-ghost:hover { color: var(--text); background: var(--surface-sunken); }
+html[data-theme="light"] .action-danger { color: var(--red); background: #fdecee; border-color: #f2b8bd; }
+html[data-theme="light"] .add-docs-card { color: var(--accent-soft); background: #f3f4ff; border-color: #b9bcf8; }
+html[data-theme="light"] .suggestion-list button { color: var(--accent-soft); background: #f1f2ff; border-color: #cfd1fb; }
+html[data-theme="light"] .segmented button.is-active { background: #dfe2f5; color: var(--text); }
+html[data-theme="light"] .segmented button.is-active.is-allow { background: #1d8656; color: #fff; }
+html[data-theme="light"] .segmented button.is-active.is-deny { background: #c73b45; color: #fff; }
+html[data-theme="light"] .page-number.is-current { color: #fff; }
+
+/* ------------------------------------------------- etiquetas de estado y color */
+html[data-theme="light"] :is(.tag, .status-pendiente, .stat-warn strong, .backup-big.is-warn, .profile-stat.stat-warning strong,
+  .ollama-status.missing-model, .audit-table tr.result-error .audit-result) { color: var(--amber); }
+html[data-theme="light"] .status-en_curso { color: var(--accent-soft); }
+html[data-theme="light"] .case-state { color: var(--green); background: #e6f6ee; border-color: #b6e3cb; }
+html[data-theme="light"] :is(.role-chip, .role-pill, .audit-action, .grant-kind, .notif-kind) { color: var(--accent-soft); background: #eef0ff; border-color: #cfd1fb; }
+html[data-theme="light"] :is(.role-chip.role-chief_lawyer, .role-pill.role-chief_lawyer, .grant-kind.kind-team) { color: var(--teal); background: #e3f5f6; border-color: #b3e0e2; }
+html[data-theme="light"] :is(.role-chip.role-lawyer, .role-pill.role-lawyer, .audit-action.audit-cases, .audit-action.audit-documents,
+  .notif-kind.kind-nota, .notif-kind.kind-documentos) { color: var(--green); background: #e6f6ee; border-color: #b6e3cb; }
+html[data-theme="light"] :is(.audit-action.audit-permissions, .audit-action.audit-users, .audit-action.audit-teams, .grant-kind.kind-firm,
+  .notif-kind.kind-vence_pronto, .notif-kind.kind-fecha, .doc-state.is-restricted, .backup-warn) { color: var(--amber); background: #fdf3e0; border-color: #f0d49c; }
+html[data-theme="light"] .audit-action.audit-auth { color: #1f6f9c; background: #e5f2fa; border-color: #b5d9ee; }
+html[data-theme="light"] :is(.audit-action.audit-access, .notif-kind.kind-vencido) { color: var(--red); background: #fdecee; border-color: #f2b8bd; }
+html[data-theme="light"] :is(.backup-alert, .who.is-blocked small, .rule-effect.is-deny, .flash.error, .audit-reason, .text-danger) { color: var(--red) !important; }
+html[data-theme="light"] .rule-effect.is-deny { background: #fdecee; }
+html[data-theme="light"] .backup-warn { background: transparent; }
+html[data-theme="light"] .state-chip.is-on { color: var(--green); background: #e6f6ee; border-color: #b6e3cb; }
+html[data-theme="light"] .doc-state.is-open { color: var(--green); background: #e6f6ee; border-color: #b6e3cb; }
+html[data-theme="light"] :is(.deadline-badge) { background: #fff; }
+html[data-theme="light"] .deadline-pronto { --deadline: var(--amber); background: #fdf6e7; }
+html[data-theme="light"] .deadline-vencido { background: #fdf0f1; }
+html[data-theme="light"] .doc-card.is-restricted { border-color: #f0d49c; }
+
+/* ---------------------------------------------------------------------- chat */
+html[data-theme="light"] .user-message { background: #eceefe; border-color: #cfd1fb; }
+html[data-theme="light"] .assistant-message { background: #eef6fb; border-color: #c7e0ef; }
+html[data-theme="light"] .sources { color: #1f6f8c; border-top-color: #00000014; }
+html[data-theme="light"] .case-context { border-top-color: #00000014; }
+
+/* ------------------------------------------------- seleccionados y notificaciones */
+html[data-theme="light"] .pick-card:has(input:checked), html[data-theme="light"] .choice-card:has(input:checked) { background: #eef0ff; border-color: var(--accent); }
+html[data-theme="light"] .choice-card.is-allow:has(input:checked) { background: #e6f6ee; border-color: var(--green); }
+html[data-theme="light"] .choice-card.is-deny:has(input:checked) { background: #fdecee; border-color: var(--red); }
+html[data-theme="light"] .pick-check { border-color: #c4cbda; }
+html[data-theme="light"] .notif-item.is-unread { background: #f3f4ff; border-color: #b9bcf8; }
+html[data-theme="light"] .notif-bell, html[data-theme="light"] .theme-toggle { background: #fff; border-color: var(--line); }
+html[data-theme="light"] .notif-badge { border-color: #fff; }
+html[data-theme="light"] .progress-meter::-webkit-progress-bar { background: #e3e7f0; }
+html[data-theme="light"] .prep-track { background: #e3e7f0; }
+html[data-theme="light"] .flash { background: #fff; }
+
+/* Botón del tema (ambos temas) */
+.theme-toggle { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; border: 1px solid var(--line); background: #ffffff05; color: var(--text); font-size: 16px; cursor: pointer; transition: .15s; }
+.theme-toggle:hover { border-color: #6064a1; background: #7779f71a; }
+html[data-theme="light"] .progress-meter { background: #e3e7f0; }
+html[data-theme="light"] .status-en_revision { color: var(--teal); border-color: #b3e0e2; background: #e3f5f6; }
+html[data-theme="light"] .status-cerrado { color: var(--green); border-color: #b6e3cb; background: #e6f6ee; }
+html[data-theme="light"] .status-pendiente { border-color: #f0d49c; background: #fdf3e0; }
+html[data-theme="light"] .status-en_curso { border-color: #cfd1fb; background: #eef0ff; }

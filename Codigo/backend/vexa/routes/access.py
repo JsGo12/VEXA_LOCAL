@@ -5,9 +5,9 @@ from flask import Blueprint, flash, g, redirect, render_template, request, url_f
 
 from vexa import runtime
 from vexa.database import connect
-from vexa.permissions import PERMISSIONS, permission_required, policy
-from vexa.permissions.catalog import ROLE_PERMISSIONS, SCOPE_TYPES
-from vexa.services import audit
+from vexa.permissions import permission_required, policy
+from vexa.permissions.catalog import SCOPE_TYPES
+from vexa.services import access_view, audit
 from vexa.services import cases as case_service
 from vexa.services import users as user_service
 
@@ -15,38 +15,49 @@ bp = Blueprint("access", __name__, url_prefix="/admin/permissions")
 
 
 def _back(user_id=None, case_id=None):
-    return redirect(url_for("access.page", user_id=user_id or None, case_id=case_id or None))
+    """Vuelve a la pestaña correspondiente: por persona (user_id) o por documento (case_id)."""
+    mode = "documentos" if case_id else "personas"
+    return redirect(url_for("access.page", mode=mode, user_id=user_id or None, case_id=case_id or None))
 
 
 @bp.get("")
 @permission_required("permissions.manage")
 def page():
     settings = runtime().settings
+    mode = "documentos" if request.args.get("mode") == "documentos" else "personas"
     user_id = request.args.get("user_id", type=int)
     case_id = request.args.get("case_id", type=int)
-    selected, summary, grants, documents, acl = None, None, [], [], {}
+    admin = g.user["role"] == "admin"
+    selected = summary = None
+    groups, grants, documents = [], [], []
     with connect(settings.db_path) as db:
-        if user_id:
+        people = access_view.manageable_people(db, g.user)
+        visible_ids = {p["id"] for p in people}
+        scope = policy.case_scope(db, g.user)
+        if user_id and user_id in visible_ids:
             selected = db.execute("SELECT id, name, username, role, active FROM users WHERE id = ?",
                                   (user_id,)).fetchone()
-            if selected is not None:
-                summary = policy.describe(db, selected)
-                grants = db.execute("""SELECT g.*, t.name AS team_name, c.title AS case_title
-                                       FROM access_grants g LEFT JOIN teams t ON g.scope_type='team' AND t.id=g.scope_id
-                                       LEFT JOIN cases c ON g.scope_type='case' AND c.id=g.scope_id
-                                       WHERE g.user_id = ? ORDER BY g.scope_type, g.id""", (user_id,)).fetchall()
-        if case_id and case_id in policy.case_scope(db, g.user):
-            documents = db.execute("SELECT id, original_name, restricted FROM documents WHERE case_id = ? ORDER BY id",
-                                   (case_id,)).fetchall()
-            for row in db.execute("""SELECT a.document_id, a.effect, u.name, u.id AS user_id FROM document_acl a
-                                     JOIN users u ON u.id = a.user_id JOIN documents d ON d.id = a.document_id
-                                     WHERE d.case_id = ? ORDER BY u.name""", (case_id,)).fetchall():
-                acl.setdefault(row["document_id"], []).append(row)
+            summary = policy.describe(db, selected)
+            groups = access_view.permission_groups(db, selected)
+            grants = db.execute("""SELECT g.*, t.name AS team_name, c.title AS case_title
+                                   FROM access_grants g LEFT JOIN teams t ON g.scope_type='team' AND t.id=g.scope_id
+                                   LEFT JOIN cases c ON g.scope_type='case' AND c.id=g.scope_id
+                                   WHERE g.user_id = ? ORDER BY g.scope_type, g.id""", (user_id,)).fetchall()
+        if case_id and case_id in scope:
+            me = db.execute("SELECT id, name, username, role, active FROM users WHERE id = ?", (g.user["id"],)).fetchone()
+            listed = people if admin else [*people, me]
+            documents = access_view.document_cards(db, g.user, case_id, listed)
+        team_ids = None if admin else [t["id"] for t in db.execute("SELECT id FROM teams").fetchall()
+                                       if policy.team_is_manageable(db, g.user, t["id"])]
+        firm = policy.has_firm_scope(db, g.user)
+    # El jefe solo ve casos de su alcance: los títulos de otros casos no aparecen en esta página.
+    cases = case_service.all_cases(settings.db_path) if admin else case_service.cases_by_ids(settings.db_path, scope)
     return render_template(
-        "permissions.html", users=user_service.list_users(settings.db_path), selected=selected,
-        summary=summary, grants=grants, permissions=PERMISSIONS, role_permissions=ROLE_PERMISSIONS,
-        scope_types=SCOPE_TYPES, teams=user_service.list_teams(settings.db_path),
-        cases=case_service.all_cases(settings.db_path), case_id=case_id, documents=documents, acl=acl,
+        "permissions.html", mode=mode, people=people, selected=selected, summary=summary, groups=groups,
+        grants=grants, scope_types=SCOPE_TYPES, can_grant_firm=firm,
+        teams=user_service.list_teams(settings.db_path, team_ids), cases=cases, case_id=case_id,
+        current_case=next((c for c in cases if c["id"] == case_id), None), documents=documents,
+        acl_people=[p for p in people if p["id"] != g.user["id"] and p["active"]],
     )
 
 

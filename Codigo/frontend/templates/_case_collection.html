@@ -1,0 +1,41 @@
+{# Lista de casos con filtros, orden y dos vistas (tarjetas / tabla). El JS está en js/case-collection.js.
+   admin=True agrega los botones Reasignar y Documentos (sus ventanas las dibuja la página). #}
+{% macro case_collection(cases, key, admin=False, empty_title='No hay casos', empty_text='') %}
+{% if cases %}
+{% set assignees = cases|map(attribute='team_name')|select|list + cases|selectattr('team_name', 'none')|map(attribute='assignee_name')|select|list %}
+<div class="collection" data-collection="{{ key }}">
+  <div class="collection-bar">
+    <input type="search" data-filter="text" placeholder="Buscar por caso, referencia o responsable…" aria-label="Buscar casos">
+    <select data-filter="status" aria-label="Estado"><option value="">Todos los estados</option>{% for k, label in STATUS_LABELS.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select>
+    <select data-filter="deadline" aria-label="Plazo"><option value="">Todos los plazos</option>{% for k, label in DEADLINE_LABELS.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select>
+    {% if assignees|unique|list|length > 1 %}<select data-filter="assignee" aria-label="Responsable"><option value="">Todos los responsables</option>{% for name in assignees|unique|sort %}<option value="{{ name|lower }}">{{ name }}</option>{% endfor %}</select>{% endif %}
+    <select data-sort aria-label="Ordenar"><option value="due">Vence primero</option><option value="due-desc">Vence último</option><option value="progress">Menos avance</option><option value="progress-desc">Más avance</option><option value="title">Nombre (A-Z)</option></select>
+    <div class="view-switch" role="group" aria-label="Vista"><button type="button" data-view="cards" class="is-active" aria-pressed="true">▦ Tarjetas</button><button type="button" data-view="table" aria-pressed="false">☰ Tabla</button></div>
+  </div>
+  <p class="collection-count" data-count>{{ cases|length }} caso(s)</p>
+
+  <div class="case-grid" data-view-panel="cards">{% for case in cases %}{% set state = case|deadline_state %}{% set who = case.team_name or case.assignee_name %}
+    <article class="case-card deadline-card-{{ state }}" data-item="{{ case.id }}" data-title="{{ case.title|lower }} {{ (case.reference or '')|lower }} {{ (who or '')|lower }}" data-status="{{ case.status }}" data-deadline="{{ state }}" data-assignee="{{ (who or '')|lower }}" data-due="{{ case.due_at }}" data-progress="{{ case.progress }}" data-name="{{ case.title|lower }}">
+      <div class="case-card-top"><span class="case-icon">§</span><span class="case-reference">{{ case.reference or 'Sin referencia' }}</span></div>
+      <div class="card-status"><span class="status-pill status-{{ case.status }}">{{ case|status_label }}</span><progress class="progress-meter" max="100" value="{{ case.progress }}">{{ case.progress }} %</progress><span>{{ case.progress }} %</span></div>
+      <h3>{{ case.title }}</h3><p class="case-summary-preview">{{ case.summary }}</p>
+      <p class="case-assignee">{{ 'Equipo' if case.team_name else 'Abogado/a' }}: <strong>{{ who }}</strong></p>
+      <div class="case-card-bottom"><span>{{ case.document_count }} documento(s)</span><span class="deadline-text deadline-{{ state }}">Límite {{ case.due_at.replace('T', ' ') }} · {{ DEADLINE_LABELS[state] }}</span></div>
+      <div class="card-actions"><a class="action-btn action-btn-primary" href="{{ url_for('cases.case_workspace', case_id=case.id) }}">Abrir</a>{% if admin %}<button type="button" class="action-btn" data-open-dialog="reassign-{{ case.id }}">Reasignar</button>{% if can('documents.upload') %}<button type="button" class="action-btn action-btn-ghost" data-open-dialog="upload-{{ case.id }}"><span class="action-icon">＋</span>Documentos</button>{% endif %}{% endif %}</div>
+    </article>{% endfor %}</div>
+
+  <div class="table-wrap" data-view-panel="table" hidden><table class="data-table case-table responsive-table"><thead><tr><th>Caso</th><th>Responsable</th><th>Estado</th><th>Avance</th><th>Fecha límite</th><th>Acciones</th></tr></thead><tbody>
+  {% for case in cases %}{% set state = case|deadline_state %}{% set who = case.team_name or case.assignee_name %}
+    <tr class="deadline-{{ state }}" data-item="{{ case.id }}" data-title="{{ case.title|lower }} {{ (case.reference or '')|lower }} {{ (who or '')|lower }}" data-status="{{ case.status }}" data-deadline="{{ state }}" data-assignee="{{ (who or '')|lower }}" data-due="{{ case.due_at }}" data-progress="{{ case.progress }}" data-name="{{ case.title|lower }}">
+      <td data-label="Caso"><strong>{{ case.title }}</strong><small>{{ case.reference or ('#' ~ case.id) }} · {{ case.document_count }} documento(s)</small></td>
+      <td data-label="Responsable">{{ ('Equipo ' ~ case.team_name) if case.team_name else case.assignee_name }}</td>
+      <td data-label="Estado"><span class="status-pill status-{{ case.status }}">{{ case|status_label }}</span></td>
+      <td data-label="Avance"><progress class="progress-meter" max="100" value="{{ case.progress }}">{{ case.progress }} %</progress> {{ case.progress }} %</td>
+      <td data-label="Fecha límite"><span class="deadline-badge">{{ case.due_at.replace('T', ' ') }} · {{ DEADLINE_LABELS[state] }}</span></td>
+      <td data-label="Acciones"><div class="row-actions"><a class="action-btn action-btn-primary" href="{{ url_for('cases.case_workspace', case_id=case.id) }}">Abrir</a>{% if admin %}<button type="button" class="action-btn" data-open-dialog="reassign-{{ case.id }}">Reasignar</button>{% if can('documents.upload') %}<button type="button" class="action-btn action-btn-ghost" data-open-dialog="upload-{{ case.id }}">＋ Docs</button>{% endif %}{% endif %}</div></td>
+    </tr>{% endfor %}
+  </tbody></table></div>
+  <p class="empty-inline" data-empty hidden>Ningún caso coincide con los filtros.</p>
+</div>
+{% else %}<div class="empty-state"><div class="empty-symbol">§</div><h3>{{ empty_title }}</h3><p>{{ empty_text }}</p></div>{% endif %}
+{% endmacro %}

@@ -38,6 +38,8 @@ Denegación por defecto, comprobada en el backend en cada ruta sensible, antes d
 
 ## Auditoría y logs
 
+Retención: por defecto se conservan **14 días** (`VEXA_AUDIT_RETENTION_DAYS`) y luego se borran solos. Un plazo corto reduce la información guardada, pero también el tiempo para investigar un incidente: si lo necesitas, súbelo (p. ej. 90) o usa `0`. Los respaldos de la base conservan los eventos que existían al momento del respaldo.
+
 `audit_log` registra inicios/cierres de sesión, cuentas, roles, equipos, asignaciones, permisos, aperturas de casos, descargas, uso del asistente y denegaciones (usuario, acción, recurso, fecha UTC, resultado, motivo, IP). Nunca guarda contraseñas, tokens, preguntas ni contenido documental. Los logs del servidor no imprimen secretos ni el `.env`.
 
 ## Errores

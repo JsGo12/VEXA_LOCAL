@@ -27,30 +27,78 @@ def _post(client, path, **data):
 
 
 # ------------------------------------------------------------------ avance
-def test_assigned_lawyer_updates_progress_and_note_is_encrypted(firm):
+def test_admin_updates_progress_and_note_is_encrypted(firm):
     web, ids = firm
-    client = _client_as(web, ids["lawyer"])
-    response = _post(client, f"/case/{ids['case']}/progress", status="en_revision", progress="70",
-                     note="Falta la firma del arrendador.")
+    response = _post(_client_as(web, ids["admin"]), f"/case/{ids['case']}/progress", status="en_revision",
+                     progress="70", note="Falta la firma del arrendador.")
     assert response.status_code == 302
     with web.connect_db() as db:
         case = db.execute("SELECT status, progress FROM cases WHERE id = ?", (ids["case"],)).fetchone()
-        stored = db.execute("SELECT note FROM case_updates").fetchone()[0]
+        stored = db.execute("SELECT note, kind FROM case_updates").fetchone()
     assert tuple(case) == ("en_revision", 70)
-    assert stored.startswith(vault.TEXT_PREFIX) and "firma" not in stored
-    page = client.get(f"/case/{ids['case']}").get_data(as_text=True)
+    assert stored["note"].startswith(vault.TEXT_PREFIX) and "firma" not in stored["note"] and stored["kind"] == "avance"
+    page = _client_as(web, ids["lawyer"]).get(f"/case/{ids['case']}").get_data(as_text=True)
     assert "Falta la firma del arrendador." in page and "En revisión" in page
 
 
-def test_closing_a_case_sets_full_progress_and_invalid_values_are_rejected(firm):
+def test_lawyer_writes_notes_but_cannot_change_progress(firm):
     web, ids = firm
-    client = _client_as(web, ids["lawyer"])
-    _post(client, f"/case/{ids['case']}/progress", status="cerrado", progress="40")
-    _post(client, f"/case/{ids['case']}/progress", status="inventado", progress="10")
-    _post(client, f"/case/{ids['case']}/progress", status="en_curso", progress="150")
+    lawyer = _client_as(web, ids["lawyer"])
+    page = lawyer.get(f"/case/{ids['case']}").get_data(as_text=True)
+    assert 'name="progress"' not in page and "Registrar nota" in page
+    assert _post(lawyer, f"/case/{ids['case']}/progress", status="cerrado", progress="100").status_code == 403
+    assert _post(lawyer, f"/case/{ids['case']}/notes", note="Se obtuvo el certificado de dominio.").status_code == 302
+    assert _post(lawyer, f"/case/{ids['case']}/notes", note="   ").status_code == 302      # vacía: no se guarda
+    assert _post(_client_as(web, ids["other"]), f"/case/{ids['case']}/notes", note="x").status_code == 403
     with web.connect_db() as db:
-        assert tuple(db.execute("SELECT status, progress FROM cases").fetchone()) == ("cerrado", 100)
-        assert db.execute("SELECT COUNT(*) FROM case_updates").fetchone()[0] == 1
+        case = db.execute("SELECT status, progress FROM cases WHERE id = ?", (ids["case"],)).fetchone()
+        rows = db.execute("SELECT kind, note, status, progress FROM case_updates").fetchall()
+    assert tuple(case) == ("en_curso", 0)
+    assert len(rows) == 1 and rows[0]["kind"] == "nota" and tuple(rows[0])[2:] == ("en_curso", 0)
+    assert rows[0]["note"].startswith(vault.TEXT_PREFIX)
+    page = lawyer.get(f"/case/{ids['case']}").get_data(as_text=True)
+    assert "Nota del abogado" in page and "certificado de dominio" in page
+
+
+def _case_row(web):
+    with web.connect_db() as db:
+        return tuple(db.execute("SELECT status, progress, close_reason FROM cases").fetchone())
+
+
+def test_closing_requires_a_reason_and_only_completed_means_100(firm):
+    web, ids = firm
+    client = _client_as(web, ids["admin"])
+    path = f"/case/{ids['case']}/progress"
+    _post(client, path, status="cerrado", progress="40")                         # sin motivo: rechazado
+    _post(client, path, status="cerrado", progress="40", close_reason="inventado")
+    _post(client, path, status="inventado", progress="10")
+    _post(client, path, status="en_curso", progress="150")
+    assert _case_row(web) == ("en_curso", 0, "")
+    _post(client, path, status="cerrado", progress="40", close_reason="abandono")  # se conserva el 40 %
+    assert _case_row(web) == ("cerrado", 40, "abandono")
+    page = client.get(f"/case/{ids['case']}").get_data(as_text=True)
+    assert "Cerrado · Abandono · 40 %" in page
+    _post(client, path, status="en_curso", progress="45", close_reason="abandono")  # reabrir borra el motivo
+    assert _case_row(web) == ("en_curso", 45, "")
+    _post(client, path, status="cerrado", progress="70", close_reason="completado")  # completado = 100 %
+    assert _case_row(web) == ("cerrado", 100, "completado")
+    with web.connect_db() as db:
+        rows = db.execute("SELECT status, progress, close_reason FROM case_updates ORDER BY id").fetchall()
+        audit = db.execute("SELECT details FROM audit_log WHERE action = 'cases.progress_update' ORDER BY id").fetchall()
+    assert [tuple(r) for r in rows] == [("cerrado", 40, "abandono"), ("en_curso", 45, ""), ("cerrado", 100, "completado")]
+    assert '"motivo": "abandono"' in audit[0][0]
+
+
+def test_closed_case_shows_reason_and_gray_deadline(firm):
+    web, ids = firm
+    admin = _client_as(web, ids["admin"])
+    _post(admin, f"/case/{ids['case']}/progress", status="cerrado", progress="30", close_reason="desistimiento")
+    follow = admin.get("/admin/seguimiento").get_data(as_text=True)
+    assert "Cerrado · Desistimiento del cliente" in follow and 'class="deadline-cerrado"' in follow
+    cards = _client_as(web, ids["lawyer"]).get("/lawyer").get_data(as_text=True)
+    assert "Cerrado · Desistimiento del cliente" in cards and 'data-deadline="cerrado"' in cards
+    text = admin.get("/admin/audit").get_data(as_text=True)
+    assert "Cerrado (desistimiento del cliente), 30 %" in text
 
 
 def test_unassigned_lawyer_cannot_update_progress(firm):
@@ -63,7 +111,7 @@ def test_unassigned_lawyer_cannot_update_progress(firm):
 
 def test_follow_up_panel_is_for_case_managers_and_shows_progress(firm):
     web, ids = firm
-    _post(_client_as(web, ids["lawyer"]), f"/case/{ids['case']}/progress", status="pendiente", progress="20",
+    _post(_client_as(web, ids["admin"]), f"/case/{ids['case']}/progress", status="pendiente", progress="20",
           note="nota privada del expediente")
     assert _client_as(web, ids["lawyer"]).get("/admin/seguimiento").status_code == 403
     page = _client_as(web, ids["admin"]).get("/admin/seguimiento")
@@ -86,7 +134,7 @@ def test_follow_up_traffic_light_marks_overdue_soon_and_on_time(firm):
         db.execute("UPDATE cases SET status = 'cerrado' WHERE id = ?", (closed,))
     data = __import__("vexa.services.cases", fromlist=["follow_up"]).follow_up(web.settings.db_path)
     state = {c["title"]: c["deadline_state"] for c in data["cases"]}
-    assert state == {"Arriendo": "al_dia", "Pronto": "pronto", "Atrasado": "vencido", "Cerrado viejo": "al_dia"}
+    assert state == {"Arriendo": "al_dia", "Pronto": "pronto", "Atrasado": "vencido", "Cerrado viejo": "cerrado"}
     text = _client_as(web, ids["admin"]).get("/admin/seguimiento").get_data(as_text=True)
     assert 'class="deadline-vencido"' in text and 'class="deadline-pronto"' in text and 'class="deadline-al_dia"' in text
 

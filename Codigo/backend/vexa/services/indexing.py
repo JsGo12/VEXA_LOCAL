@@ -14,7 +14,7 @@ import logging
 from collections import OrderedDict
 from contextlib import contextmanager
 from pathlib import Path
-from threading import Lock, RLock, Thread
+from threading import Condition, Lock, RLock, Thread
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from vexa.database import connect, store
@@ -22,6 +22,7 @@ from vexa.permissions import policy
 from vexa.rag import hybrid as rag_hybrid
 from vexa.rag import model_select
 from vexa.rag import stages as rag_stages
+from vexa.services import llm_priority
 
 LOGGER = logging.getLogger(__name__)
 Signature = Tuple[Tuple[str, Optional[str], int, int], ...]
@@ -48,6 +49,11 @@ class CaseIndexer:
         self._partial: Dict[int, tuple] = {}
         self._rerun: set = set()
         self._jobs_lock = RLock()
+        self._summary_lock = Lock()
+        self._summary_wakeup = Condition(self._summary_lock)
+        self._summary_pending: Dict[int, tuple] = {}
+        self._summary_order: List[int] = []
+        self._summary_worker: Optional[Thread] = None
 
     # ----------------------------------------------------------------- utilidades
     @contextmanager
@@ -162,6 +168,35 @@ class CaseIndexer:
     def schedule(self, case_id: int) -> None:
         Thread(target=self.preload, args=(case_id,), daemon=True).start()
 
+    # ------------------------------------------------- resúmenes automáticos en cola
+    def queue_summary(self, case_id: int, index, signature) -> None:
+        """Encola el resumen de un caso. Un solo trabajador los genera de a uno, cediendo el turno
+        al chat; si el mismo caso se vuelve a encolar, se usa solo la versión más reciente."""
+        with self._summary_lock:
+            already = case_id in self._summary_pending
+            self._summary_pending[case_id] = (index, signature)
+            if not already:
+                self._summary_order.append(case_id)
+            if self._summary_worker is None or not self._summary_worker.is_alive():
+                self._summary_worker = Thread(target=self._summary_loop, name="vexa-resumenes", daemon=True)
+                self._summary_worker.start()
+            self._summary_wakeup.notify()
+
+    def summaries_pending(self) -> int:
+        with self._summary_lock:
+            return len(self._summary_pending)
+
+    def _summary_loop(self) -> None:
+        while True:
+            with self._summary_lock:
+                while not self._summary_order:
+                    if not self._summary_wakeup.wait(timeout=60):
+                        self._summary_worker = None       # sin trabajo: el hilo termina
+                        return
+                case_id = self._summary_order.pop(0)
+                index, signature = self._summary_pending.pop(case_id)
+            self._generar_resumen(case_id, index, signature)
+
     def _generar_resumen(self, case_id: int, index, signature) -> None:
         sig = hashlib.sha1(repr(signature).encode()).hexdigest()
         previo = store.get_summary(self.db_path, case_id)
@@ -169,7 +204,8 @@ class CaseIndexer:
             return
         try:
             perfil = model_select.perfil_actual()
-            texto = rag_stages.resumir_indice(index, perfil.modelo, opciones=perfil.opciones)
+            texto = rag_stages.resumir_indice(index, perfil.modelo, opciones=perfil.opciones,
+                                              antes_de_llamar=llm_priority.esperar_turno)
             if texto:
                 store.save_summary(self.db_path, case_id, sig, texto)
         except Exception:
@@ -230,7 +266,7 @@ class CaseIndexer:
                 index, signature, _hit = resultado
                 perfil = model_select.perfil_actual()
                 Thread(target=rag_hybrid.precargar_modelo, args=(perfil.modelo,), daemon=True).start()
-                Thread(target=self._generar_resumen, args=(case_id, index, signature), daemon=True).start()
+                self.queue_summary(case_id, index, signature)
         except Exception:
             LOGGER.exception("No se pudo precargar el índice del caso %s", case_id)
             with self._jobs_lock:

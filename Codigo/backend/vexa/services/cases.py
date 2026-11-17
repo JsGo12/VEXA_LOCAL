@@ -174,7 +174,28 @@ STATUS_LABELS = {"pendiente": "Pendiente", "en_curso": "En curso", "en_revision"
 MAX_NOTE = 2000
 
 
-def parse_progress(status: str, raw_progress: str, note: str) -> Tuple[str, int, str]:
+# Motivos al cerrar un caso. Solo «completado» lleva el avance a 100 %; con los demás se conserva el
+# porcentaje real (un caso abandonado al 40 % sigue mostrando 40 %).
+CLOSE_REASONS = {
+    "completado": "Completado",
+    "acuerdo": "Acuerdo entre las partes",
+    "desistimiento": "Desistimiento del cliente",
+    "abandono": "Abandono",
+    "archivado": "Archivado",
+    "otro": "Otro motivo",
+}
+
+
+def close_label(status: str, close_reason: str = "") -> str:
+    """Texto del estado con su motivo: «Cerrado · Abandono»."""
+    label = STATUS_LABELS.get(status, status)
+    if status == "cerrado":
+        return f"{label} · {CLOSE_REASONS.get(close_reason, 'sin motivo registrado')}"
+    return label
+
+
+def parse_progress(status: str, raw_progress: str, note: str, close_reason: str = "") -> Tuple[str, int, str, str]:
+    """Valida estado, avance, nota y motivo de cierre. Devuelve (estado, avance, nota, motivo)."""
     if status not in STATUS_LABELS:
         raise CaseError("Selecciona un estado válido.")
     try:
@@ -183,23 +204,48 @@ def parse_progress(status: str, raw_progress: str, note: str) -> Tuple[str, int,
         raise CaseError("El avance debe ser un número entre 0 y 100.") from exc
     if not 0 <= progress <= 100:
         raise CaseError("El avance debe estar entre 0 y 100.")
+    close_reason = (close_reason or "").strip()
     if status == "cerrado":
-        progress = 100
+        if close_reason not in CLOSE_REASONS:
+            raise CaseError("Indica el motivo de cierre del caso (completado, acuerdo, abandono…).")
+        if close_reason == "completado":
+            progress = 100
+    else:
+        close_reason = ""                       # al reabrir, el motivo anterior deja de aplicar
     note = (note or "").strip()
     if len(note) > MAX_NOTE:
         raise CaseError(f"La nota puede tener como máximo {MAX_NOTE} caracteres.")
-    return status, progress, note
+    return status, progress, note, close_reason
 
 
-def update_progress(db_path: Path, case_id: int, user_id: int, status: str, progress: int, note: str) -> int:
+def update_progress(db_path: Path, case_id: int, user_id: int, status: str, progress: int, note: str,
+                    close_reason: str = "") -> int:
     """Actualiza el estado del caso y registra la actualización (la nota se guarda cifrada)."""
     with connect(db_path) as db:
         if db.execute("SELECT 1 FROM cases WHERE id = ?", (case_id,)).fetchone() is None:
             raise CaseError("El caso no existe.")
-        db.execute("UPDATE cases SET status = ?, progress = ? WHERE id = ?", (status, progress, case_id))
+        db.execute("UPDATE cases SET status = ?, progress = ?, close_reason = ? WHERE id = ?",
+                   (status, progress, close_reason, case_id))
         return db.execute(
-            "INSERT INTO case_updates(case_id, user_id, status, progress, note) VALUES (?, ?, ?, ?, ?)",
-            (case_id, user_id, status, progress, vault.enc_text(note) if note else "")).lastrowid
+            "INSERT INTO case_updates(case_id, user_id, status, progress, note, kind, close_reason) "
+            "VALUES (?, ?, ?, ?, ?, 'avance', ?)",
+            (case_id, user_id, status, progress, vault.enc_text(note) if note else "", close_reason)).lastrowid
+
+
+def add_note(db_path: Path, case_id: int, user_id: int, note: str) -> int:
+    """Nota del abogado (cómo va, evidencias): no cambia estado ni porcentaje. Se guarda cifrada."""
+    note = (note or "").strip()
+    if not note:
+        raise CaseError("Escribe la nota antes de registrarla.")
+    if len(note) > 2000:
+        raise CaseError("La nota no puede superar los 2000 caracteres.")
+    with connect(db_path) as db:
+        case = db.execute("SELECT status, progress FROM cases WHERE id = ?", (case_id,)).fetchone()
+        if case is None:
+            raise CaseError("El caso no existe.")
+        return db.execute(
+            "INSERT INTO case_updates(case_id, user_id, status, progress, note, kind) VALUES (?, ?, ?, ?, ?, 'nota')",
+            (case_id, user_id, case["status"], case["progress"], vault.enc_text(note))).lastrowid
 
 
 def set_due_date(db_path: Path, case_id: int, due_at: str) -> str:
@@ -214,15 +260,34 @@ def set_due_date(db_path: Path, case_id: int, due_at: str) -> str:
 
 def case_updates(db_path: Path, case_id: int, limit: int = 30) -> List[dict]:
     with connect(db_path) as db:
-        rows = db.execute("""SELECT u.id, u.status, u.progress, u.note, u.created_at, us.name AS author
+        rows = db.execute("""SELECT u.id, u.status, u.progress, u.note, u.kind, u.close_reason, u.created_at, us.name AS author
                              FROM case_updates u LEFT JOIN users us ON us.id = u.user_id
                              WHERE u.case_id = ? ORDER BY u.id DESC LIMIT ?""", (case_id, limit)).fetchall()
     return [{**dict(r), "note": vault.dec_text(r["note"]) if r["note"] else "",
-             "status_label": STATUS_LABELS.get(r["status"], r["status"])} for r in rows]
+             "status_label": close_label(r["status"], r["close_reason"])} for r in rows]
 
 
-def follow_up(db_path: Path, soon_days: int = 7) -> dict:
-    """Datos del panel de seguimiento: solo metadatos (sin notas ni contenido documental)."""
+DEADLINE_LABELS = {"vencido": "Vencido", "pronto": "Vence pronto", "al_dia": "Al día", "cerrado": "Cerrado"}
+
+
+def deadline_state(due_at: str, status: str, now: Optional[datetime] = None, soon_days: int = 7) -> str:
+    """Semáforo de un caso: 'vencido' (abierto y pasado), 'pronto' (abierto, < soon_days), 'al_dia' o
+    'cerrado' (los casos cerrados ya no corren plazo, se cerraran completos o no)."""
+    if status == "cerrado":
+        return "cerrado"
+    try:
+        due = datetime.strptime(due_at, "%Y-%m-%dT%H:%M")
+    except (TypeError, ValueError):
+        return "al_dia"
+    now = now or datetime.now()
+    if due < now:
+        return "vencido"
+    return "pronto" if (due - now).days < soon_days else "al_dia"
+
+
+def follow_up(db_path: Path, soon_days: int = 7, case_ids: Optional[Iterable[int]] = None) -> dict:
+    """Datos del panel de seguimiento: solo metadatos (sin notas ni contenido documental).
+    case_ids limita el panel (abogado jefe: solo los casos de su alcance)."""
     now = datetime.now()
     with connect(db_path) as db:
         rows = db.execute(CASE_LIST_SQL.replace(
@@ -232,17 +297,18 @@ def follow_up(db_path: Path, soon_days: int = 7) -> dict:
                (SELECT MAX(created_at) FROM chat_messages m WHERE m.case_id = c.id) AS last_chat,
                (SELECT MAX(uploaded_at) FROM documents d2 WHERE d2.case_id = c.id) AS last_document""")
             + " ORDER BY c.due_at ASC").fetchall()
+    if case_ids is not None:
+        keep = set(case_ids)
+        rows = [r for r in rows if r["id"] in keep]
     cases, counts = [], {k: 0 for k in STATUS_LABELS}
     for r in rows:
         item = dict(r)
         counts[item["status"]] = counts.get(item["status"], 0) + 1
-        due = datetime.strptime(item["due_at"], "%Y-%m-%dT%H:%M")
-        open_case = item["status"] != "cerrado"
-        item["overdue"] = open_case and due < now
-        item["due_soon"] = open_case and not item["overdue"] and (due - now).days < soon_days
         # Semáforo del panel: rojo vencido, amarillo pronto, verde el resto (incluye cerrados).
-        item["deadline_state"] = "vencido" if item["overdue"] else ("pronto" if item["due_soon"] else "al_dia")
-        item["status_label"] = STATUS_LABELS.get(item["status"], item["status"])
+        item["deadline_state"] = deadline_state(item["due_at"], item["status"], now, soon_days)
+        item["overdue"] = item["deadline_state"] == "vencido"
+        item["due_soon"] = item["deadline_state"] == "pronto"
+        item["status_label"] = close_label(item["status"], item.get("close_reason", ""))
         item["last_activity"] = max((v for v in (item["last_update"], item["last_chat"], item["last_document"],
                                                  item["created_at"]) if v), default=None)
         cases.append(item)

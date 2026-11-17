@@ -1,58 +1,193 @@
 {% extends 'base.html' %}{% block title %}Administración · VEXA{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/management.css') }}">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/management.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">{% endblock %}
 {% block content %}
-<div class="page-heading"><div><span class="eyebrow">PANEL DE ADMINISTRACIÓN</span><h1>Usuarios, equipos y casos</h1><p>Crea cuentas y equipos, asigna casos y administra roles. Los permisos sobre datos se gestionan en <a class="text-link" href="{{ url_for('access.page') }}">Permisos</a>.</p></div><span class="local-badge">● Servidor privado</span></div>
-<div class="dashboard-grid">
-  {% if can('users.manage') %}
-  <section class="panel form-panel"><div class="panel-title"><span class="step">01</span><div><h2>Crear cuenta</h2><p>Genera una cuenta para un integrante.</p></div></div>
-    <form method="post" action="{{ url_for('admin.create_user') }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label>Nombre<input name="name" required maxlength="100"></label><label>Usuario<input name="username" required maxlength="60"></label>
-      <label>Contraseña temporal <small>Mínimo 10 caracteres</small><input name="password" type="password" minlength="10" required autocomplete="new-password"></label>
-      <label>Rol<select name="role">{% for role in assignable_roles %}<option value="{{ role }}" {% if role == 'lawyer' %}selected{% endif %}>{{ ROLE_LABELS[role] }}</option>{% endfor %}</select></label>
-      <button class="button button-secondary">Crear cuenta</button></form>
-  </section>
-  {% endif %}
-  {% if can('teams.manage') %}
-  <section class="panel form-panel"><div class="panel-title"><span class="step">02</span><div><h2>Crear equipo</h2><p>Agrupa abogados para asignarles casos.</p></div></div>
-    <form method="post" action="{{ url_for('admin.create_team') }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label>Nombre del equipo<input name="name" required maxlength="100" placeholder="Ej. Litigios civiles"></label>
-      <fieldset><legend>Integrantes</legend>{% if assignees %}<div class="member-checks">{% for person in assignees %}<label class="check-row"><input type="checkbox" name="member_ids" value="{{ person.id }}"><span>{{ person.name }}</span></label>{% endfor %}</div>{% else %}<p class="empty-inline">Crea al menos una cuenta de abogado primero.</p>{% endif %}</fieldset>
-      <button class="button button-secondary" {% if not assignees %}disabled{% endif %}>Crear equipo</button></form>
-    <div class="subsection"><h3>Equipos <span>{{ teams|length }}</span></h3>{% if teams %}<ul class="compact-list">{% for team in teams %}<li class="team-row"><span class="avatar avatar-team">E</span><details><summary>{{ team.name }}<small>{{ team.members|map(attribute='name')|join(', ') or 'Sin integrantes' }}</small></summary>
-      <form method="post" action="{{ url_for('admin.update_team', team_id=team.id) }}" class="stack-form compact-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% set member_ids = team.members|map(attribute='id')|list %}<div class="member-checks">{% for person in assignees %}<label class="check-row"><input type="checkbox" name="member_ids" value="{{ person.id }}" {% if person.id in member_ids %}checked{% endif %}><span>{{ person.name }}</span></label>{% endfor %}</div><button class="button button-quiet">Guardar integrantes</button></form></details></li>{% endfor %}</ul>{% else %}<p class="empty-inline">Aún no hay equipos.</p>{% endif %}</div>
-  </section>
-  {% endif %}
-  {% if can('cases.manage') %}
-  <section class="panel form-panel case-create"><div class="panel-title"><span class="step">03</span><div><h2>Crear y asignar caso</h2><p>Los documentos quedan cifrados y asociados a este caso.</p></div></div>
+{% from '_people_picker.html' import people_picker %}{% from '_case_collection.html' import case_collection with context %}
+{% set TAB_INFO = {
+  'casos': ('§', 'Casos', cases|length, 'Crear, asignar y abrir casos'),
+  'usuarios': ('◉', 'Usuarios', users|length, 'Cuentas, roles y contraseñas'),
+  'equipos': ('◎', 'Equipos', teams|length, 'Grupos de abogados'),
+  'supervision': ('⚑', 'Supervisión', chiefs|length, 'Abogados a cargo de cada jefe'),
+  'respaldos': ('⛁', 'Respaldos', (backup.files|length) if backup else 0, 'Copias de seguridad y recuperación'),
+} %}
+<div class="page-heading"><div><span class="eyebrow">PANEL DE ADMINISTRACIÓN</span><h1>Administración</h1><p>Elige qué quieres gestionar. Los permisos sobre datos se ajustan en <a class="text-link" href="{{ url_for('access.page') }}">Permisos</a>.</p></div><span class="local-badge">● Servidor privado</span></div>
+
+<nav class="admin-tabs" role="tablist" aria-label="Secciones de administración">
+  {% for tab in tabs %}{% set icon, label, count, hint = TAB_INFO[tab] %}
+  <a class="admin-tab{% if tab == active_tab %} is-active{% endif %}" role="tab" href="{{ url_for('admin.dashboard', tab=tab) }}"
+     data-tab="{{ tab }}" aria-selected="{{ 'true' if tab == active_tab else 'false' }}" aria-controls="tab-{{ tab }}">
+    <span class="admin-tab-icon">{{ icon }}</span>
+    <span class="admin-tab-text"><strong>{{ label }}</strong><small>{{ hint }}</small></span>
+    <span class="admin-tab-count">{{ count }}</span>
+  </a>{% endfor %}
+</nav>
+
+{# ================================================================ CASOS #}
+{% if 'casos' in tabs %}
+<section class="admin-panel" id="tab-casos" role="tabpanel" {% if active_tab != 'casos' %}hidden{% endif %}>
+  <div class="admin-toolbar">
+    <div><h2>Casos {{ 'de la firma' if g.user.role == 'admin' else 'de tus abogados' }}</h2><p class="hint">Abre un caso, cámbiale el responsable o súmale documentos.</p></div>
+    <div class="toolbar-actions"><a class="action-btn action-btn-ghost" href="{{ url_for('admin.follow_up') }}">Seguimiento →</a><button type="button" class="action-btn action-btn-primary" data-open-dialog="newCase"><span class="action-icon">＋</span>Nuevo caso</button></div>
+  </div>
+  {{ case_collection(cases, 'admin-casos', admin=True, empty_title='Aún no hay casos', empty_text='Usa «＋ Nuevo caso» para crear el primero y asignarlo.') }}
+  {# Ventanas de cada caso fuera de las tarjetas, para que abran también desde la vista de tabla. #}
+  {% for case in cases %}
+    <dialog id="reassign-{{ case.id }}" class="action-dialog" aria-label="Reasignar {{ case.title }}"><div class="action-dialog-inner">
+      <div class="action-dialog-head"><div><span class="eyebrow">CAMBIAR RESPONSABLE</span><h2>{{ case.title }}</h2></div><button type="button" class="action-btn action-btn-ghost" data-close-dialog aria-label="Cerrar">✕</button></div>
+      <form method="post" action="{{ url_for('admin.reassign_case', case_id=case.id) }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <p class="hint">Ahora: <strong>{{ case.team_name or case.assignee_name }}</strong>.</p>
+        {% set assign_id = case.id %}{% include '_assignment_fields.html' %}
+        <div class="dialog-actions"><button type="button" class="action-btn action-btn-ghost" data-close-dialog>Cancelar</button><button class="action-btn action-btn-primary">Reasignar</button></div>
+      </form></div></dialog>
+    {% if can('documents.upload') %}<dialog id="upload-{{ case.id }}" class="action-dialog" aria-label="Agregar documentos a {{ case.title }}"><div class="action-dialog-inner">
+      <div class="action-dialog-head"><div><span class="eyebrow">AGREGAR DOCUMENTOS</span><h2>{{ case.title }}</h2></div><button type="button" class="action-btn action-btn-ghost" data-close-dialog aria-label="Cerrar">✕</button></div>
+      <form method="post" action="{{ url_for('cases.upload_documents', case_id=case.id) }}" enctype="multipart/form-data" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="admin">
+        <p class="hint">El caso tiene {{ case.document_count }} documento(s). Máximo {{ max_mb }} MB por archivo; se cifran y se suman al expediente.</p>
+        <input type="file" name="documents" accept=".pdf,.docx,.xlsx,.pptx,.txt,.csv" multiple required>
+        {% if can('permissions.manage') %}<label class="check-row"><input type="checkbox" name="restricted" value="1"><span>Marcar como restringidos</span></label>{% endif %}
+        <div class="dialog-actions"><button type="button" class="action-btn action-btn-ghost" data-close-dialog>Cancelar</button><button class="action-btn action-btn-primary">Subir documentos</button></div>
+      </form></div></dialog>{% endif %}
+  {% endfor %}
+
+  <dialog id="newCase" class="action-dialog action-dialog-wide" aria-label="Crear y asignar caso"><div class="action-dialog-inner">
+    <div class="action-dialog-head"><div><span class="eyebrow">NUEVO CASO</span><h2>Crear y asignar caso</h2></div><button type="button" class="action-btn action-btn-ghost" data-close-dialog aria-label="Cerrar">✕</button></div>
     <form method="post" action="{{ url_for('admin.create_case') }}" enctype="multipart/form-data" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>Nombre del caso<input name="title" required maxlength="160" placeholder="Ej. Revisión de contrato de arriendo"></label>
-      <label>Resumen para el abogado<textarea name="summary" required maxlength="800" rows="3" placeholder="Describe en pocas líneas el objetivo, los antecedentes conocidos y el próximo paso."></textarea></label>
+      <label>Resumen para el abogado<textarea name="summary" required maxlength="800" rows="3" placeholder="Objetivo, antecedentes conocidos y próximo paso."></textarea></label>
       <div class="form-row"><label>Referencia interna <small>Opcional</small><input name="reference" maxlength="60" placeholder="LEG-2026-014"></label><label>Fecha límite<input type="datetime-local" name="due_at" required></label></div>
       {% set assign_id = 'new' %}{% include '_assignment_fields.html' %}
-      <label class="upload-field">Documentos (PDF, DOCX, XLSX, PPTX, TXT, CSV)<input type="file" name="documents" accept=".pdf,.docx,.xlsx,.pptx,.txt,.csv" multiple required><small>Máximo {{ max_mb }} MB por archivo. Para la defensa, usa documentos ficticios.</small></label>
-      <button class="button button-primary">Crear caso y asignar</button></form></section>
-  {% endif %}
-</div>
-
-{% if can('users.manage') %}
-<section class="cases-section"><div class="section-heading"><div><span class="eyebrow">CUENTAS</span><h2>Usuarios</h2></div><span class="count-pill">{{ users|length }} cuentas</span></div>
-  <div class="table-wrap"><table class="data-table"><thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Estado</th><th></th></tr></thead><tbody>
-  {% for user in users %}<tr class="{{ '' if user.active else 'row-muted' }}"><td>{{ user.name }}</td><td>@{{ user.username }}</td>
-    <td>{% if user.id != g.user.id and (g.user.role == 'admin' or user.role == 'lawyer') %}<form method="post" action="{{ url_for('admin.change_role', user_id=user.id) }}" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><select name="role">{% for role in assignable_roles %}<option value="{{ role }}" {% if role == user.role %}selected{% endif %}>{{ ROLE_LABELS[role] }}</option>{% endfor %}</select><button class="button button-quiet">Cambiar</button></form>{% else %}{{ ROLE_LABELS.get(user.role, user.role) }}{% endif %}</td>
-    <td>{{ 'Activa' if user.active else 'Desactivada' }}</td>
-    <td>{% if user.id != g.user.id and (g.user.role == 'admin' or user.role == 'lawyer') %}<form method="post" action="{{ url_for('admin.change_active', user_id=user.id) }}" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="active" value="{{ '0' if user.active else '1' }}"><button class="button button-quiet">{{ 'Desactivar' if user.active else 'Activar' }}</button></form>{% endif %}{% if can('permissions.manage') %} <a class="text-link" href="{{ url_for('access.page', user_id=user.id) }}">Permisos →</a>{% endif %}
-      {% if user.id != g.user.id and (g.user.role == 'admin' or user.role == 'lawyer') %}<details class="reassign"><summary>Contraseña temporal</summary><form method="post" action="{{ url_for('admin.reset_password', user_id=user.id) }}" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="password" name="password" minlength="10" required autocomplete="new-password" placeholder="Mínimo 10 caracteres"><button class="button button-quiet">Asignar</button></form></details>{% endif %}</td></tr>{% endfor %}
-  </tbody></table></div>
+      <div class="upload-field"><span class="picker-label">Documentos del caso</span><input type="file" name="documents" accept=".pdf,.docx,.xlsx,.pptx,.txt,.csv" multiple required aria-label="Documentos del caso"><small class="hint">Máximo {{ max_mb }} MB por archivo. Usa documentos ficticios.</small></div>
+      <div class="dialog-actions"><button type="button" class="action-btn action-btn-ghost" data-close-dialog>Cancelar</button><button class="action-btn action-btn-primary">Crear caso y asignar</button></div>
+    </form></div></dialog>
 </section>
 {% endif %}
 
-{% if can('cases.manage') %}
-<section class="cases-section"><div class="section-heading"><div><span class="eyebrow">SEGUIMIENTO</span><h2>Casos de la firma</h2></div><a class="button button-secondary button-small" href="{{ url_for('admin.follow_up') }}">Ver panel de seguimiento →</a></div>
-{% if cases %}<div class="case-grid">{% for case in cases %}<article class="case-card"><div class="case-card-top"><span class="case-icon">§</span><span class="case-reference">{{ case.reference or 'Sin referencia' }}</span></div><div class="card-status"><span class="status-pill status-{{ case.status }}">{{ STATUS_LABELS.get(case.status, case.status) }}</span><progress class="progress-meter" max="100" value="{{ case.progress }}">{{ case.progress }} %</progress><span>{{ case.progress }} %</span></div><h3>{{ case.title }}</h3><p class="case-summary-preview">{{ case.summary }}</p><p class="case-assignee">{{ 'Equipo' if case.team_name else 'Abogado/a' }}: <strong>{{ case.team_name or case.assignee_name }}</strong></p><div class="case-card-bottom"><span>{{ case.document_count }} documento(s)</span><span>Límite {{ case.due_at.replace('T', ' ') }}</span></div>
-  <details class="reassign"><summary>Cambiar asignación</summary><form method="post" action="{{ url_for('admin.reassign_case', case_id=case.id) }}" class="stack-form compact-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% set assign_id = case.id %}{% include '_assignment_fields.html' %}<button class="button button-quiet">Reasignar</button></form></details>
-  <a class="text-link" href="{{ url_for('cases.case_workspace', case_id=case.id) }}">Abrir espacio del caso →</a></article>{% endfor %}</div>
-{% else %}<div class="empty-state"><div class="empty-symbol">§</div><h3>Aún no hay casos</h3><p>Crea cuentas y equipos, luego asigna un caso con sus documentos.</p></div>{% endif %}
+{# ============================================================= USUARIOS #}
+{% if 'usuarios' in tabs %}
+<section class="admin-panel" id="tab-usuarios" role="tabpanel" {% if active_tab != 'usuarios' %}hidden{% endif %}>
+  <div class="admin-toolbar">
+    <div><h2>{{ 'Cuentas' if g.user.role == 'admin' else 'Abogados a tu cargo' }}</h2><p class="hint">Usa «Gestionar» para cambiar rol, estado o asignar una contraseña temporal.</p></div>
+    <div class="toolbar-actions"><button type="button" class="action-btn action-btn-primary" data-open-dialog="newUser"><span class="action-icon">＋</span>Nueva cuenta</button></div>
+  </div>
+  <div class="table-wrap"><table class="data-table responsive-table user-table"><thead><tr><th>Persona</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+  {% for user in users %}{% set manageable = user.id != g.user.id and (g.user.role == 'admin' or user.role == 'lawyer') %}
+    <tr class="{{ '' if user.active else 'row-muted' }}">
+      <td data-label="Persona"><div class="person"><span class="person-avatar role-{{ user.role }}">{{ ((user.name.split()|map('first')|list)[:2]|join|upper) or '?' }}</span><span><strong>{{ user.name }}</strong><small>@{{ user.username }}</small></span></div></td>
+      <td data-label="Rol"><span class="role-chip role-{{ user.role }}">{{ ROLE_LABELS.get(user.role, user.role) }}</span></td>
+      <td data-label="Estado"><span class="state-chip {{ 'is-on' if user.active else 'is-off' }}">{{ 'Activa' if user.active else 'Desactivada' }}</span></td>
+      <td data-label="Acciones"><div class="row-actions">{% if manageable %}<button type="button" class="action-btn" data-open-dialog="user-{{ user.id }}">Gestionar</button>{% endif %}{% if can('permissions.manage') and user.id != g.user.id %}<a class="action-btn action-btn-ghost" href="{{ url_for('access.page', user_id=user.id) }}">Permisos</a>{% endif %}{% if user.id == g.user.id %}<a class="action-btn action-btn-ghost" href="{{ url_for('auth.profile') }}">Mi perfil</a>{% endif %}</div>
+      {% if manageable %}<dialog id="user-{{ user.id }}" class="action-dialog" aria-label="Gestionar cuenta de {{ user.name }}"><div class="action-dialog-inner">
+        <div class="action-dialog-head"><div><span class="eyebrow">GESTIONAR CUENTA</span><h2>{{ user.name }} <small class="muted">@{{ user.username }}</small></h2></div><button type="button" class="action-btn action-btn-ghost" data-close-dialog aria-label="Cerrar">✕</button></div>
+        <div class="dialog-section"><h3>Rol</h3><form method="post" action="{{ url_for('admin.change_role', user_id=user.id) }}" class="dialog-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><select name="role">{% for role in assignable_roles %}<option value="{{ role }}" {% if role == user.role %}selected{% endif %}>{{ ROLE_LABELS[role] }}</option>{% endfor %}</select><button class="action-btn">Cambiar rol</button></form></div>
+        <div class="dialog-section"><h3>Contraseña temporal</h3><p class="hint">La persona deberá cambiarla al entrar y se cerrarán sus sesiones abiertas.</p><form method="post" action="{{ url_for('admin.reset_password', user_id=user.id) }}" class="dialog-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="password" name="password" minlength="10" required autocomplete="new-password" placeholder="Mínimo 10 caracteres"><button class="action-btn">Asignar</button></form></div>
+        <div class="dialog-section"><h3>Estado</h3><form method="post" action="{{ url_for('admin.change_active', user_id=user.id) }}" class="dialog-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="active" value="{{ '0' if user.active else '1' }}"><span class="hint">La cuenta está {{ 'activa' if user.active else 'desactivada' }}.</span><button class="action-btn {{ 'action-danger' if user.active else 'action-btn-primary' }}">{{ 'Desactivar cuenta' if user.active else 'Activar cuenta' }}</button></form></div>
+      </div></dialog>{% endif %}</td></tr>
+  {% else %}<tr><td data-label="Persona" colspan="4" class="empty-inline">{{ 'Aún no hay cuentas.' if g.user.role == 'admin' else 'El administrador aún no te asigna abogados.' }}</td></tr>{% endfor %}
+  </tbody></table></div>
+
+  <dialog id="newUser" class="action-dialog" aria-label="Crear cuenta"><div class="action-dialog-inner">
+    <div class="action-dialog-head"><div><span class="eyebrow">NUEVA CUENTA</span><h2>Crear cuenta</h2></div><button type="button" class="action-btn action-btn-ghost" data-close-dialog aria-label="Cerrar">✕</button></div>
+    <form method="post" action="{{ url_for('admin.create_user') }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Nombre<input name="name" required maxlength="100"></label><label>Usuario<input name="username" required maxlength="60"></label>
+      <label>Contraseña temporal <small>Mínimo 10 caracteres · deberá cambiarla al entrar</small><input name="password" type="password" minlength="10" required autocomplete="new-password"></label>
+      <label>Rol<select name="role">{% for role in assignable_roles %}<option value="{{ role }}" {% if role == 'lawyer' %}selected{% endif %}>{{ ROLE_LABELS[role] }}</option>{% endfor %}</select></label>
+      <div class="dialog-actions"><button type="button" class="action-btn action-btn-ghost" data-close-dialog>Cancelar</button><button class="action-btn action-btn-primary">Crear cuenta</button></div>
+    </form></div></dialog>
+</section>
+{% endif %}
+
+{# ============================================================== EQUIPOS #}
+{% if 'equipos' in tabs %}
+<section class="admin-panel" id="tab-equipos" role="tabpanel" {% if active_tab != 'equipos' %}hidden{% endif %}>
+  <div class="admin-toolbar">
+    <div><h2>Equipos</h2><p class="hint">{% if g.user.role == 'admin' %}Agrupa abogados para asignarles casos en conjunto.{% else %}Agrupa a los abogados a tu cargo para asignarles casos.{% endif %}</p></div>
+    <div class="toolbar-actions"><button type="button" class="action-btn action-btn-primary" data-open-dialog="newTeam" {% if not assignees %}disabled{% endif %}><span class="action-icon">＋</span>Nuevo equipo</button></div>
+  </div>
+  {% if not assignees %}<p class="empty-inline">{% if g.user.role == 'admin' %}Crea al menos una cuenta de abogado primero.{% else %}El administrador aún no te asigna abogados a cargo.{% endif %}</p>{% endif %}
+  {% if teams %}<div class="team-grid">{% for team in teams %}<article class="panel team-card">
+    <div class="team-card-head"><span class="avatar avatar-team">E</span><div><h3>{{ team.name }}</h3><small>{{ team.members|length }} integrante(s)</small></div></div>
+    <div class="chip-list">{% for m in team.members %}<span class="chip">{{ m.name }}</span>{% else %}<span class="hint">Sin integrantes</span>{% endfor %}</div>
+    <button type="button" class="action-btn" data-open-dialog="team-{{ team.id }}">Editar integrantes</button>
+    <dialog id="team-{{ team.id }}" class="action-dialog action-dialog-wide" aria-label="Integrantes de {{ team.name }}"><div class="action-dialog-inner">
+      <div class="action-dialog-head"><div><span class="eyebrow">INTEGRANTES</span><h2>{{ team.name }}</h2></div><button type="button" class="action-btn action-btn-ghost" data-close-dialog aria-label="Cerrar">✕</button></div>
+      <form method="post" action="{{ url_for('admin.update_team', team_id=team.id) }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% set member_ids = team.members|map(attribute='id')|list %}
+        {{ people_picker('member_ids', assignees, member_ids) }}
+        <div class="dialog-actions"><button type="button" class="action-btn action-btn-ghost" data-close-dialog>Cancelar</button><button class="action-btn action-btn-primary">Guardar integrantes</button></div>
+      </form></div></dialog>
+  </article>{% endfor %}</div>
+  {% elif assignees %}<div class="empty-state"><div class="empty-symbol">◎</div><h3>Aún no hay equipos</h3><p>Usa «＋ Nuevo equipo» para crear el primero.</p></div>{% endif %}
+
+  {% if assignees %}<dialog id="newTeam" class="action-dialog action-dialog-wide" aria-label="Crear equipo"><div class="action-dialog-inner">
+    <div class="action-dialog-head"><div><span class="eyebrow">NUEVO EQUIPO</span><h2>Crear equipo</h2></div><button type="button" class="action-btn action-btn-ghost" data-close-dialog aria-label="Cerrar">✕</button></div>
+    <form method="post" action="{{ url_for('admin.create_team') }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Nombre del equipo<input name="name" required maxlength="100" placeholder="Ej. Litigios civiles"></label>
+      <div class="picker-label">Integrantes</div>
+      {{ people_picker('member_ids', assignees, []) }}
+      <div class="dialog-actions"><button type="button" class="action-btn action-btn-ghost" data-close-dialog>Cancelar</button><button class="action-btn action-btn-primary">Crear equipo</button></div>
+    </form></div></dialog>{% endif %}
+</section>
+{% endif %}
+
+{# =========================================================== SUPERVISIÓN #}
+{% if 'supervision' in tabs %}
+<section class="admin-panel" id="tab-supervision" role="tabpanel" {% if active_tab != 'supervision' %}hidden{% endif %}>
+  <div class="admin-toolbar"><div><h2>Abogados a cargo de cada abogado jefe</h2><p class="hint">El jefe solo arma equipos y asigna casos con los abogados que marques, y ve los casos que ellos tienen asignados.</p></div></div>
+  {% if chiefs %}<div class="team-grid">{% for chief in chiefs %}{% set mine = supervision.get(chief.id, []) %}<article class="panel team-card">
+    <div class="team-card-head"><span class="person-avatar role-chief_lawyer">{{ ((chief.name.split()|map('first')|list)[:2]|join|upper) or '?' }}</span><div><h3>{{ chief.name }}</h3><small>@{{ chief.username }} · {{ mine|length }} abogado(s) a cargo</small></div></div>
+    <div class="chip-list">{% for lawyer in all_lawyers if lawyer.id in mine %}<span class="chip">{{ lawyer.name }}</span>{% else %}<span class="hint">Sin abogados a cargo</span>{% endfor %}</div>
+    <button type="button" class="action-btn" data-open-dialog="chief-{{ chief.id }}">Elegir abogados</button>
+    <dialog id="chief-{{ chief.id }}" class="action-dialog action-dialog-wide" aria-label="Abogados a cargo de {{ chief.name }}"><div class="action-dialog-inner">
+      <div class="action-dialog-head"><div><span class="eyebrow">ABOGADOS A CARGO</span><h2>{{ chief.name }}</h2></div><button type="button" class="action-btn action-btn-ghost" data-close-dialog aria-label="Cerrar">✕</button></div>
+      <form method="post" action="{{ url_for('admin.set_supervised_lawyers', chief_id=chief.id) }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <p class="hint">Marca los abogados que quedarán a cargo de {{ chief.name }}.</p>
+        {{ people_picker('lawyer_ids', all_lawyers, mine, 'Aún no hay cuentas de abogado activas.') }}
+        <div class="dialog-actions"><button type="button" class="action-btn action-btn-ghost" data-close-dialog>Cancelar</button><button class="action-btn action-btn-primary">Guardar abogados a cargo</button></div>
+      </form></div></dialog>
+  </article>{% endfor %}</div>
+  {% else %}<div class="empty-state"><div class="empty-symbol">⚑</div><h3>No hay abogados jefe</h3><p>Crea una cuenta con rol «Abogado/a jefe» en la pestaña Usuarios.</p></div>{% endif %}
+</section>
+{% endif %}
+
+{# ============================================================= RESPALDOS #}
+{% if 'respaldos' in tabs and backup %}
+<section class="admin-panel" id="tab-respaldos" role="tabpanel" {% if active_tab != 'respaldos' %}hidden{% endif %}>
+  <div class="admin-toolbar">
+    <div><h2>Respaldos</h2><p class="hint">{% if backup.hours %}El servidor crea un respaldo cifrado cada {{ backup.hours }} h y conserva los últimos {{ backup.keep }}, sin detenerse.{% else %}El respaldo automático está desactivado (VEXA_BACKUP_HOURS=0).{% endif %}</p></div>
+    <form method="post" action="{{ url_for('admin.create_backup_now') }}" class="toolbar-actions"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="action-btn action-btn-primary"><span class="action-icon">⛁</span>Crear respaldo ahora</button></form>
+  </div>
+
+  <div class="backup-grid">
+    <article class="panel backup-card">
+      <h3>Último respaldo</h3>
+      {% set st = backup.status %}
+      {% if st.last_ok %}<p class="backup-big is-ok">✓ {{ st.last_ok_local[:16] }}</p><p class="hint">{{ (st.last_reason or 'automático')|capitalize }} · {{ st.last_path }}</p>
+      {% else %}<p class="backup-big is-warn">Aún no hay respaldos</p><p class="hint">El primero se crea solo al minuto de iniciar el servidor, o ahora con el botón.</p>{% endif %}
+      {% if st.last_error %}<p class="backup-alert">Último error ({{ st.last_error_local[:16] }}): {{ st.last_error }}</p>{% endif %}
+    </article>
+    <article class="panel backup-card">
+      <h3>Dónde se guardan</h3>
+      <p class="backup-path">{{ backup.dir }}</p>
+      {% if backup.cloud %}<p class="backup-alert">Esta carpeta parece sincronizada con la nube. Usa un disco externo: los respaldos contienen todos los expedientes.</p>
+      {% elif backup.same_drive %}<p class="backup-warn">Está en el mismo disco que los datos: protege ante errores y borrados, pero no si el disco falla. Para eso, apunta <code>VEXA_BACKUP_DIR</code> a un disco externo en el <code>.env</code>.</p>
+      {% else %}<p class="backup-ok">Está en un disco distinto al de los datos. ✓</p>{% endif %}
+    </article>
+    <article class="panel backup-card">
+      <h3>Clave de recuperación</h3>
+      {% set rec = backup.recovery %}
+      {% if rec.exported and rec.matches %}<p class="backup-big is-ok">✓ Creada</p><p class="hint">El {{ rec.exported_at[:10] }}. Permite restaurar en otro PC si este se daña.</p>
+      {% elif rec.exported %}<p class="backup-big is-warn">No coincide</p><p class="hint">La clave guardada no corresponde a la actual. Crea una nueva.</p>
+      {% else %}<p class="backup-big is-warn">Falta crearla</p><p class="hint">Sin ella, si este PC se daña, los respaldos no se pueden abrir en otro equipo.</p>{% endif %}
+      <p class="hint">Se crea solo en el PC servidor, desde la carpeta <code>codigo</code>:</p>
+      <code class="backup-cmd">.\.venv\Scripts\python.exe backend\scripts\clave_recuperacion.py E:\vexa-clave.vexakey</code>
+      <p class="hint">Guarda el archivo en una USB y la contraseña en otro lugar.</p>
+    </article>
+  </div>
+
+  <div class="table-wrap"><table class="data-table"><thead><tr><th>Respaldo</th><th>Fecha</th><th>Tamaño</th></tr></thead><tbody>
+  {% for f in backup.files %}<tr><td><strong>{{ f.name }}</strong>{% if loop.first %} <span class="state-chip is-on">más reciente</span>{% endif %}</td><td>{{ f.when }}</td><td>{{ '%.1f'|format(f.size / 1048576) }} MB</td></tr>
+  {% else %}<tr><td colspan="3" class="empty-inline">Todavía no hay respaldos en esta carpeta.</td></tr>{% endfor %}
+  </tbody></table></div>
+  <p class="hint">Para restaurar (con VEXA detenido): <code>backend\scripts\backup_vexa.py restore ARCHIVO --replace</code>. En otro PC, agrega <code>--clave-recuperacion E:\vexa-clave.vexakey</code>. Detalle en docs/respaldos.md.</p>
 </section>
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/admin.js') }}"></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/admin.js') }}"></script><script src="{{ url_for('static', filename='js/case-dialog.js') }}"></script><script src="{{ url_for('static', filename='js/case-collection.js') }}"></script>{% endblock %}

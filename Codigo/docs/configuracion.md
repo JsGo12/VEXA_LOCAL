@@ -28,6 +28,10 @@ VEXA lee su configuración en este orden de prioridad:
 | `VEXA_DATA_DIR` | `%USERPROFILE%\.vexa_local` | Carpeta de datos. |
 | `VEXA_DB_PATH` | `<DATA_DIR>\vexa_web.db` | Base SQLite. |
 | `VEXA_WATCH_DIR` | `<DATA_DIR>\carpeta_vigilada` | Carpeta vigilada (una subcarpeta por caso). |
+| `VEXA_BACKUP_DIR` | `%USERPROFILE%\VEXA_respaldos` | Carpeta del respaldo automático (idealmente un disco externo; fuera de la carpeta de datos). Ver [respaldos.md](respaldos.md). |
+| `VEXA_BACKUP_HOURS` | `24` | Cada cuántas horas respalda el servidor. `0` = desactivado. |
+| `VEXA_BACKUP_KEEP` | `7` | Cuántos respaldos conservar. |
+| `VEXA_AUDIT_RETENTION_DAYS` | `14` | Días que se conserva el registro de auditoría; los eventos más antiguos se borran al iniciar, al abrir Auditoría y cada 6 horas. `0` = no borrar nunca. Rango 0–3650. |
 | `VEXA_SESSION_COOKIE_SECURE` | `false` | `true` si se accede por HTTPS (p. ej. `tailscale serve`). |
 | `OLLAMA_HOST` | `http://127.0.0.1:11434` | Debe ser loopback: VEXA no envía documentos a IA externa. |
 | `VEXA_CHAT_MODEL` | vacío | Fuerza un modelo de chat (vacío = automático según RAM/GPU). |

@@ -12,7 +12,7 @@ from vexa.permissions import can, deny, permission_required
 from vexa.rag import firm
 from vexa.rag import hybrid as rag_hybrid
 from vexa.routes.cases import chat_profile, ollama_error_message
-from vexa.services import audit
+from vexa.services import audit, llm_priority
 
 bp = Blueprint("assistant", __name__)
 LOGGER = logging.getLogger(__name__)
@@ -108,6 +108,10 @@ def ask(conversation_id):
 
     @stream_with_context
     def generate():
+        with llm_priority.interactive():           # el resumen de fondo espera mientras se responde
+            yield from _generate()
+
+    def _generate():
         try:
             yield _event("status", text=f"Buscando en {len(cards)} expediente(s) autorizados…")
             index = rt.assistant.index_for(user["id"], documents)

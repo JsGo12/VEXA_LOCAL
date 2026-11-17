@@ -5,49 +5,108 @@
 <a class="back-link" href="{{ url_for('auth.index') }}">← Volver al inicio</a>
 <header class="case-workspace-heading">
   <div><span class="eyebrow">CASO {{ case.reference or ('#' ~ case.id) }}</span><h1>{{ case.title }}</h1><p>Asignado a {{ case.team_name or case.assignee_name }} · Fecha límite {{ case.due_at.replace('T', ' ') }}</p></div>
-  <span class="case-state status-{{ case.status }}">{{ status_labels.get(case.status, case.status) }} · {{ case.progress }} %</span>
+  <span class="case-state status-{{ case.status }}">{{ case|status_label }} · {{ case.progress }} %</span>
 </header>
-<section class="case-overview">
-  <div class="overview-copy"><span class="eyebrow">RESUMEN DEL EXPEDIENTE</span><p>{{ case_summary or 'Este caso todavía no tiene resumen ni documentos con texto extraíble.' }}</p><p id="aiSummary" class="ai-summary" hidden></p></div>
-  <div class="overview-stats"><div><strong>{{ documents|length }}</strong><span>documentos visibles</span></div><div><strong>{{ case.due_at[:10] }}</strong><span>fecha límite</span></div><div><strong>{{ 'Equipo' if case.team_name else 'Individual' }}</strong><span>asignación</span></div></div>
-</section>
-<div class="workspace-grid" id="caseWorkspace"
+
+{# Resumen compacto: al hacer clic se abre el expediente completo (resumen, documentos y descarga). #}
+<div class="case-top-row">
+<button type="button" class="summary-card" data-open-dialog="caseDialog" aria-haspopup="dialog">
+  <span class="summary-card-icon">§</span>
+  <span class="summary-card-body">
+    <span class="eyebrow">RESUMEN DEL EXPEDIENTE</span>
+    <span class="summary-card-text">{{ case_summary or 'Este caso todavía no tiene resumen ni documentos con texto extraíble.' }}</span>
+    <span class="summary-card-meta">{{ documents|length }} documento(s) · Límite {{ case.due_at[:10] }} · {{ 'Equipo' if case.team_name else 'Individual' }}</span>
+  </span>
+  <span class="summary-card-action">Ver resumen y documentos →</span>
+</button>
+{% if can('documents.upload') %}<button type="button" class="add-docs-card" data-open-dialog="uploadDialog" aria-haspopup="dialog"><span class="action-icon">＋</span>Agregar documentos</button>{% endif %}
+</div>
+
+<section class="panel assistant-panel assistant-panel-wide" id="caseWorkspace"
      data-chat-url="{{ url_for('cases.case_chat', case_id=case.id) }}"
      data-history-url="{{ url_for('cases.case_history', case_id=case.id) }}"
      data-status-url="{{ url_for('cases.case_status', case_id=case.id) }}"
      data-summary-url="{{ url_for('cases.case_summary_api', case_id=case.id) }}"
      data-ollama-url="{{ url_for('system.ollama_status') }}">
-  <section class="panel documents-panel">
-    <div class="section-heading"><div><span class="eyebrow">EXPEDIENTE</span><h2>Documentos del caso</h2></div><span class="count-pill">{{ documents|length }}</span></div>
-    {% if documents %}<ul class="document-list">{% for document in documents %}<li><span class="doc-icon">{{ document.original_name.rsplit('.', 1)[-1]|upper }}</span><span class="document-name">{{ document.original_name }}{% if document.restricted %} <em class="tag">restringido</em>{% endif %}<small>Agregado {{ document.uploaded_at }}</small></span>{% if can_download %}<a class="download-link" href="{{ url_for('cases.download_document', document_id=document.id) }}">Descargar</a>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="empty-inline">No hay documentos visibles para ti en este caso.</p>{% endif %}
-    {% if watch_dir %}<div class="case-notes"><span class="eyebrow">CARPETA VIGILADA</span><p>Copia archivos (PDF, DOCX, XLSX, PPTX, TXT, CSV) en <code>{{ watch_dir }}</code> y se agregarán solos a este caso.</p></div>{% endif %}
-    {% if can('documents.upload') %}<form class="case-notes stack-form compact-form" method="post" action="{{ url_for('cases.upload_documents', case_id=case.id) }}" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><span class="eyebrow">AGREGAR DOCUMENTOS</span><input type="file" name="documents" accept=".pdf,.docx,.xlsx,.pptx,.txt,.csv" multiple required><small class="hint">PDF, DOCX, XLSX, PPTX, TXT o CSV · máximo {{ max_mb }} MB por archivo.</small>{% if can('permissions.manage') %}<label class="check-row"><input type="checkbox" name="restricted" value="1"><span>Marcar como restringidos</span></label>{% endif %}<button class="button button-secondary">Subir al expediente</button></form>{% endif %}
-    <div class="case-notes"><span class="eyebrow">ALCANCE</span><p>VEXA buscará respuestas únicamente en los documentos de este caso que tienes autorizados y mostrará las fuentes utilizadas.</p></div>
-  </section>
-  <section class="panel assistant-panel">
-    <div class="section-heading"><div><span class="eyebrow">ASISTENTE DOCUMENTAL</span><h2>Chat del caso</h2></div><span id="ollamaStatus" class="ollama-status checking"><i></i><span>Verificando Ollama...</span></span></div>
-    <div id="prepBar" class="prep-bar" hidden><div class="prep-track"><div id="prepFill" class="prep-fill"></div></div><span id="prepText"></span></div>
-    <div id="chatMessages" class="chat-messages">
-      <article class="chat-message assistant-message"><p><strong>Hola, {{ g.user.name }}.</strong> Estoy listo para ayudarte con <strong>{{ case.title }}</strong>.</p><p>{{ case_summary or 'Abre uno de los documentos del expediente o pregunta por un dato concreto.' }}</p><div class="case-context">Documentos disponibles: {% for document in documents %}<span>{{ document.original_name }}</span>{% else %}ninguno{% endfor %}</div></article>
-      {% if documents %}<div class="suggestion-label">Prueba una consulta</div><div class="suggestion-list"><button type="button" data-question="Resume los antecedentes principales de este caso.">Resumen del caso</button><button type="button" data-question="¿Qué fechas y plazos aparecen en los documentos?">Fechas y plazos</button><button type="button" data-question="¿Qué información o documentos faltan en el expediente?">Antecedentes faltantes</button></div>{% endif %}
+  {% if can('cases.message') %}<div class="panel-tabs" role="tablist" aria-label="Conversaciones del caso">
+    <button type="button" role="tab" data-panel-tab="ia" class="{{ 'is-active' if open_panel == 'ia' }}" aria-selected="{{ 'true' if open_panel == 'ia' else 'false' }}">✦ Asistente IA</button>
+    <button type="button" role="tab" data-panel-tab="mensajes" id="mensajes" class="{{ 'is-active' if open_panel == 'mensajes' }}" aria-selected="{{ 'true' if open_panel == 'mensajes' else 'false' }}">✉ Mensajes del equipo <span class="tab-badge" data-messages-badge {% if not messages_unread %}hidden{% endif %}>{{ messages_unread }}</span></button>
+  </div>{% endif %}
+  <div data-panel-content="ia" {% if open_panel != 'ia' %}hidden{% endif %}>
+  <div class="section-heading"><div><span class="eyebrow">ASISTENTE DOCUMENTAL</span><h2>Chat del caso</h2></div><span id="ollamaStatus" class="ollama-status checking"><i></i><span>Verificando Ollama...</span></span></div>
+  <div id="prepBar" class="prep-bar" hidden><div class="prep-track"><div id="prepFill" class="prep-fill"></div></div><span id="prepText"></span></div>
+  <div id="chatMessages" class="chat-messages">
+    <article class="chat-message assistant-message"><p><strong>Hola, {{ g.user.name }}.</strong> Estoy listo para ayudarte con <strong>{{ case.title }}</strong>. Busco solo en los documentos de este caso que tienes autorizados y te muestro las fuentes.</p><div class="case-context">Documentos disponibles: {% for document in documents %}<span>{{ document.original_name }}</span>{% else %}ninguno{% endfor %}</div></article>
+    {% if documents %}<div class="suggestion-label">Prueba una consulta</div><div class="suggestion-list"><button type="button" data-question="Resume los antecedentes principales de este caso.">Resumen del caso</button><button type="button" data-question="¿Qué fechas y plazos aparecen en los documentos?">Fechas y plazos</button><button type="button" data-question="¿Qué información o documentos faltan en el expediente?">Antecedentes faltantes</button></div>{% endif %}
+  </div>
+  <form id="questionForm" class="question-form"><input id="questionInput" autocomplete="off" maxlength="2000" placeholder="Pregunta sobre los documentos de este caso..." required><button class="button button-primary">Consultar</button></form>
+  <div class="prototype-note">Las respuestas se basan en los documentos recuperados y requieren revisión profesional.</div>
+  </div>
+  {% if can('cases.message') %}
+  <div data-panel-content="mensajes" class="team-panel" {% if open_panel != 'mensajes' %}hidden{% endif %}
+       data-messages-url="{{ url_for('messages.fetch', case_id=case.id) }}" data-send-url="{{ url_for('messages.send', case_id=case.id) }}">
+    <div class="section-heading"><div><span class="eyebrow">EQUIPO DEL CASO</span><h2>Mensajes</h2></div><span class="hint">Lo ven quienes tienen acceso a este caso · se guardan cifrados</span></div>
+    <div class="team-thread" data-thread>
+      {% for m in team_messages %}{% if m.kind == 'sistema' %}<div class="msg-system" data-id="{{ m.id }}"><span>{{ m.body }}</span><small>{{ m.when }}</small></div>
+      {% else %}<article class="msg{% if m.mine %} is-mine{% endif %}" data-id="{{ m.id }}"><span class="msg-avatar role-{{ m.role }}">{{ ((m.author.split()|map('first')|list)[:2]|join|upper) or '?' }}</span><div class="msg-bubble"><div class="msg-meta"><strong>{{ 'Tú' if m.mine else m.author }}</strong><small>{{ ROLE_LABELS.get(m.role, '') }} · {{ m.when }}</small></div><p>{{ m.body }}</p></div></article>{% endif %}
+      {% else %}<p class="empty-inline" data-thread-empty>Aún no hay mensajes. Escribe al equipo para avisar de documentos faltantes, plazos u otros pendientes.</p>{% endfor %}
     </div>
-    <form id="questionForm" class="question-form"><input id="questionInput" autocomplete="off" maxlength="2000" placeholder="Pregunta sobre los documentos de este caso..." required><button class="button button-primary">Consultar</button></form>
-    <div class="prototype-note">Las respuestas se basan en los documentos recuperados y requieren revisión profesional.</div>
-  </section>
-</div>
+    <div class="quick-messages" aria-label="Mensajes rápidos">{% for label, text in quick_messages %}<button type="button" class="quick-chip" data-quick="{{ text }}">{{ label }}</button>{% endfor %}</div>
+    <form method="post" action="{{ url_for('messages.send', case_id=case.id) }}" class="team-form" data-team-form><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <textarea name="body" rows="2" maxlength="2000" required placeholder="Escribe un mensaje al equipo del caso…" aria-label="Mensaje"></textarea>
+      <button class="button button-primary">Enviar</button>
+    </form>
+    <p class="team-error" data-team-error hidden></p>
+  </div>
+  {% endif %}
+</section>
+
 <section class="panel progress-panel" id="avance">
-  <div class="section-heading"><div><span class="eyebrow">SEGUIMIENTO</span><h2>Avance del caso</h2></div><span class="count-pill">{{ status_labels.get(case.status, case.status) }}</span></div>
-  <progress class="progress-meter" max="100" value="{{ case.progress }}">{{ case.progress }} %</progress><p class="hint">{{ case.progress }} % completado</p>
+  <div class="section-heading"><div><span class="eyebrow">SEGUIMIENTO</span><h2>Avance del caso</h2></div><span class="count-pill">{{ case|status_label }}</span></div>
+  <progress class="progress-meter" max="100" value="{{ case.progress }}">{{ case.progress }} %</progress><p class="hint">{{ case.progress }} % completado{% if not can('cases.update_progress') %} · el estado y el porcentaje los actualiza el abogado jefe o el administrador{% endif %}</p>
   <div class="progress-grid">
     {% if can('cases.update_progress') %}
     <form method="post" action="{{ url_for('cases.update_progress', case_id=case.id) }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-row"><label>Estado<select name="status">{% for key, label in status_labels.items() %}<option value="{{ key }}" {% if key == case.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
       <label>Avance (%)<input type="number" name="progress" min="0" max="100" step="5" value="{{ case.progress }}" required></label></div>
+      <label data-close-reason>Motivo de cierre <small>Obligatorio al cerrar · solo «Completado» deja el avance en 100 %</small><select name="close_reason"><option value="">— Elige el motivo —</option>{% for key, label in close_reasons.items() %}<option value="{{ key }}" {% if key == case.close_reason %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
       <label>Nota de avance <small>Opcional · se guarda cifrada</small><textarea name="note" rows="3" maxlength="2000" placeholder="Qué se hizo, qué falta y próximos pasos."></textarea></label>
       <button class="button button-primary">Registrar avance</button></form>
+    {% elif can('cases.add_note') %}
+    <form method="post" action="{{ url_for('cases.add_note', case_id=case.id) }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>¿Cómo va el caso? <small>Notas y evidencias · se guardan cifradas</small><textarea name="note" rows="4" maxlength="2000" required placeholder="Gestiones realizadas, evidencias obtenidas, reuniones, próximos pasos..."></textarea></label>
+      <button class="button button-primary">Registrar nota</button></form>
     {% endif %}
-    <div><h3 class="subheading">Historial</h3>{% if updates %}<ol class="update-list">{% for u in updates %}<li><div><strong>{{ u.status_label }} · {{ u.progress }} %</strong><small>{{ u.author or 'Usuario eliminado' }} · {{ u.created_at }}</small></div>{% if u.note %}<p>{{ u.note }}</p>{% endif %}</li>{% endfor %}</ol>{% else %}<p class="empty-inline">Aún no hay actualizaciones de avance.</p>{% endif %}</div>
+    <div><h3 class="subheading">Historial</h3>{% if updates %}<ol class="update-list">{% for u in updates %}<li class="update-{{ u.kind }}"><div><strong>{% if u.kind == 'nota' %}Nota del abogado{% else %}{{ u.status_label }} · {{ u.progress }} %{% endif %}</strong><small>{{ u.author or 'Usuario eliminado' }} · {{ u.created_at }}</small></div>{% if u.note %}<p>{{ u.note }}</p>{% endif %}</li>{% endfor %}</ol>{% else %}<p class="empty-inline">Aún no hay actualizaciones de avance.</p>{% endif %}</div>
   </div>
 </section>
+
+<dialog id="caseDialog" class="case-dialog" aria-labelledby="caseDialogTitle">
+  <div class="case-dialog-inner">
+    <div class="case-dialog-head"><div><span class="eyebrow">EXPEDIENTE</span><h2 id="caseDialogTitle">{{ case.title }}</h2></div><button type="button" class="button button-quiet" data-close-dialog aria-label="Cerrar">✕</button></div>
+    <div class="case-dialog-section">
+      <span class="eyebrow">RESUMEN</span>
+      <p>{{ case_summary or 'Este caso todavía no tiene resumen ni documentos con texto extraíble.' }}</p>
+      <p id="aiSummary" class="ai-summary" hidden></p>
+    </div>
+    <div class="overview-stats dialog-stats"><div><strong>{{ documents|length }}</strong><span>documentos visibles</span></div><div><strong>{{ case.due_at[:10] }}</strong><span>fecha límite</span></div><div><strong>{{ 'Equipo' if case.team_name else 'Individual' }}</strong><span>asignación</span></div></div>
+    <div class="case-dialog-section">
+      <div class="section-heading"><div><span class="eyebrow">DOCUMENTOS</span><h3 class="subheading">Documentos del caso</h3></div>
+        {% if can_download and documents %}<a class="button button-primary button-small" href="{{ url_for('cases.download_case', case_id=case.id) }}">Descargar expediente (ZIP)</a>{% endif %}</div>
+      {% if documents %}<ul class="document-list">{% for document in documents %}<li><span class="doc-icon">{{ document.original_name.rsplit('.', 1)[-1]|upper }}</span><span class="document-name">{{ document.original_name }}{% if document.restricted %} <em class="tag">restringido</em>{% endif %}<small>Agregado {{ document.uploaded_at }}</small></span>{% if can_download %}<a class="download-link" href="{{ url_for('cases.download_document', document_id=document.id) }}">Descargar</a>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="empty-inline">No hay documentos visibles para ti en este caso.</p>{% endif %}
+    </div>
+    {% if can('documents.upload') %}<div class="case-notes"><button type="button" class="action-btn" data-open-dialog="uploadDialog"><span class="action-icon">＋</span>Agregar documentos</button></div>{% endif %}
+    {% if watch_dir %}<div class="case-notes"><span class="eyebrow">CARPETA VIGILADA</span><p>Copia archivos (PDF, DOCX, XLSX, PPTX, TXT, CSV) en <code>{{ watch_dir }}</code> y se agregarán solos a este caso.</p></div>{% endif %}
+  </div>
+</dialog>
+
+{% if can('documents.upload') %}<dialog id="uploadDialog" class="action-dialog" aria-label="Agregar documentos al caso"><div class="action-dialog-inner">
+  <div class="action-dialog-head"><div><span class="eyebrow">AGREGAR DOCUMENTOS</span><h2>{{ case.title }}</h2></div><button type="button" class="action-btn action-btn-ghost" data-close-dialog aria-label="Cerrar">✕</button></div>
+  <form method="post" action="{{ url_for('cases.upload_documents', case_id=case.id) }}" enctype="multipart/form-data" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p class="hint">PDF, DOCX, XLSX, PPTX, TXT o CSV · máximo {{ max_mb }} MB por archivo. Se cifran y se suman al expediente; el chat los usará cuando terminen de prepararse.</p>
+    <input type="file" name="documents" accept=".pdf,.docx,.xlsx,.pptx,.txt,.csv" multiple required>
+    {% if can('permissions.manage') %}<label class="check-row"><input type="checkbox" name="restricted" value="1"><span>Marcar como restringidos</span></label>{% endif %}
+    <div class="dialog-actions"><button type="button" class="action-btn action-btn-ghost" data-close-dialog>Cancelar</button><button class="action-btn action-btn-primary">Subir al expediente</button></div>
+  </form></div></dialog>{% endif %}
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/ndjson.js') }}"></script><script src="{{ url_for('static', filename='js/case-chat.js') }}"></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/ndjson.js') }}"></script><script src="{{ url_for('static', filename='js/case-chat.js') }}"></script><script src="{{ url_for('static', filename='js/case-dialog.js') }}"></script><script src="{{ url_for('static', filename='js/progress-form.js') }}"></script><script src="{{ url_for('static', filename='js/case-messages.js') }}"></script>{% endblock %}

@@ -105,6 +105,13 @@ def _client_as(web: Web, user_id):
     return client
 
 
+def supervise(web: Web, chief_id: int, *lawyer_ids: int) -> None:
+    """El administrador deja abogados a cargo de un abogado jefe."""
+    with web.connect_db() as db:
+        db.executemany("INSERT OR IGNORE INTO chief_lawyers(chief_id, lawyer_id) VALUES (?, ?)",
+                       [(chief_id, lawyer_id) for lawyer_id in lawyer_ids])
+
+
 def grant(web: Web, user_id: int, scope_type: str, scope_id=None) -> None:
     with web.connect_db() as db:
         db.execute("INSERT INTO access_grants(user_id, scope_type, scope_id) VALUES (?, ?, ?)",

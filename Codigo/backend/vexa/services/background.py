@@ -1,10 +1,12 @@
-"""Servicios de fondo: cifrado de archivos antiguos y carpeta vigilada (una carpeta por caso)."""
+"""Servicios de fondo: cifrado de archivos antiguos, carpeta vigilada (una por caso) y respaldo automático."""
 from __future__ import annotations
 
 import logging
 from vexa.database import connect
 from vexa.security import vault
+from vexa.services import backups
 from vexa.services import cases as case_service
+from vexa.services import notifications as notification_service
 from vexa.services.watcher import CarpetaVigilada
 
 LOGGER = logging.getLogger(__name__)
@@ -34,4 +36,6 @@ def start_background_services(app) -> None:
         return ok
 
     CarpetaVigilada(settings.watch_dir, ingest, case_service.ALLOWED_EXTENSIONS).start()
+    backups.start_scheduler(settings)
+    notification_service.start_deadline_checker(settings.db_path)
     rt.services_started = True
