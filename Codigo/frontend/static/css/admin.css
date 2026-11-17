@@ -1,0 +1,90 @@
+/* Panel de administración por pestañas */
+.admin-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.admin-tab { display: flex; align-items: center; gap: 11px; padding: 13px 14px; border: 1px solid var(--line); border-radius: 14px; background: linear-gradient(145deg, #171f2e, #131a26); color: var(--text); transition: border-color .15s, transform .15s, background .15s; }
+.admin-tab:hover, .admin-tab:focus-visible { border-color: #6064a1; transform: translateY(-1px); outline: 0; }
+.admin-tab.is-active { border-color: #7779f7; background: linear-gradient(145deg, #23295a, #171d3a); box-shadow: 0 0 0 1px #7779f744, 0 10px 26px #0004; }
+.admin-tab-icon { flex-shrink: 0; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #7779f71b; color: #b4b4ff; font: 700 16px Georgia, serif; }
+.admin-tab.is-active .admin-tab-icon { background: linear-gradient(140deg, #8c8dff, #5c61e8); color: #fff; }
+.admin-tab-text { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.admin-tab-text strong { font: 700 13px Manrope, sans-serif; }
+.admin-tab-text small { font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-tab-count { flex-shrink: 0; min-width: 26px; padding: 3px 8px; border-radius: 99px; text-align: center; font-size: 11px; font-weight: 700; color: #c1c3ff; background: #7779f718; }
+.admin-panel[hidden] { display: none; }
+.admin-toolbar { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.admin-toolbar h2 { font: 700 18px Manrope, sans-serif; margin: 0; }
+.admin-toolbar .hint { margin: 4px 0 0; }
+.toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.action-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+/* Usuarios */
+.user-table td { font-size: 12px; }
+.person { display: flex; align-items: center; gap: 10px; }
+.person strong { display: block; font-size: 12px; }
+.person-avatar { flex-shrink: 0; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; font: 800 11px Manrope, sans-serif; color: #fff; background: linear-gradient(140deg, #8c8dff, #5c61e8); }
+.person-avatar.role-chief_lawyer { background: linear-gradient(140deg, #5fc7c9, #2f8f9c); }
+.person-avatar.role-lawyer { background: linear-gradient(140deg, #81d6ac, #3e9b72); }
+.role-chip, .state-chip { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 10px; font-weight: 700; white-space: nowrap; color: #c8c9ff; background: #7779f71c; border: 1px solid #7779f744; }
+.role-chip.role-chief_lawyer { color: #9fe3e4; background: #5fc7c91a; border-color: #5fc7c955; }
+.role-chip.role-lawyer { color: #a6e8c6; background: #81d6ac14; border-color: #81d6ac44; }
+.state-chip.is-on { color: var(--green); background: #81d6ac12; border-color: #81d6ac44; }
+.state-chip.is-off { color: var(--muted); background: transparent; border-color: var(--line); }
+.dialog-section { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+.dialog-section h3 { font: 700 12px Manrope, sans-serif; margin: 0 0 8px; }
+.dialog-section .hint { margin: 0 0 8px; }
+.dialog-inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dialog-inline select, .dialog-inline input[type=password] { flex: 1; min-width: 160px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; color: var(--text); background: #0f1520; font-size: 12px; }
+.dialog-inline .hint { flex: 1; margin: 0; }
+.action-danger { border-color: #ff949466; background: #ff94941a; color: #ffb4b4; }
+.action-danger:hover { background: #ff949433; border-color: var(--red); }
+.muted { color: var(--muted); font: 400 11px 'DM Sans', sans-serif; }
+/* Equipos y supervisión */
+.team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.team-card { display: grid; gap: 12px; align-content: start; padding: 16px; }
+.team-card-head { display: flex; align-items: center; gap: 10px; }
+.team-card-head h3 { font: 700 14px Manrope, sans-serif; margin: 0; }
+.team-card-head small { font-size: 10px; color: var(--muted); }
+.team-card .action-btn { justify-self: start; }
+.chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { padding: 4px 9px; border-radius: 99px; font-size: 10px; background: #ffffff0d; border: 1px solid var(--line); color: #d3dae6; }
+.member-checks-tall { max-height: 260px; }
+.action-dialog-wide { width: min(640px, calc(100vw - 32px)); }
+@media (max-width: 700px) { .admin-tabs { grid-template-columns: 1fr 1fr; } .admin-tab-text small { display: none; } }
+/* Selector de personas con tarjetas */
+.picker { display: grid; gap: 10px; }
+.picker-label { font-size: 11px; font-weight: 600; color: #b3bed0; }
+.picker-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.picker-count { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; color: #c8c9ff; background: #7779f71c; border: 1px solid #7779f744; }
+.picker-search { flex: 1; min-width: 160px; border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; color: var(--text); background: #0f1520; font-size: 12px; outline: 0; }
+.picker-search:focus { border-color: #7779f7; box-shadow: 0 0 0 3px #7779f71b; }
+.picker-links { display: flex; gap: 4px; margin-left: auto; }
+.picker-link { border: 0; background: transparent; color: #b8b8ff; font-size: 11px; font-weight: 700; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.picker-link:hover { background: #7779f71a; color: #fff; }
+.picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; max-height: 320px; overflow: auto; padding: 2px; }
+.pick-card, .stack-form .pick-card { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #0f1520; cursor: pointer; transition: border-color .15s, background .15s, transform .15s; }
+.pick-card:hover { border-color: #3a4763; background: #131b29; }
+.pick-card input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.pick-card:focus-within { box-shadow: 0 0 0 3px #7779f733; }
+.pick-avatar { flex-shrink: 0; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; font: 800 11px Manrope, sans-serif; color: #fff; background: linear-gradient(140deg, #81d6ac, #3e9b72); filter: saturate(.55) brightness(.85); transition: filter .15s; }
+.pick-avatar.role-chief_lawyer { background: linear-gradient(140deg, #5fc7c9, #2f8f9c); }
+.pick-text { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.pick-text strong { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick-text small { font-size: 10px; color: var(--muted); }
+.pick-check { flex-shrink: 0; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; border: 1px solid #3a4763; color: transparent; font-size: 12px; font-weight: 800; transition: .15s; }
+.pick-card:has(input:checked) { border-color: #7779f7; background: linear-gradient(145deg, #1f2550, #161c38); }
+.pick-card:has(input:checked) .pick-avatar { filter: none; }
+.pick-card input:checked ~ .pick-check { border-color: transparent; color: #fff; background: linear-gradient(120deg, #7779f7, #6266e8); }
+.pick-card[hidden] { display: none; }
+.picker-empty { font-size: 11px; color: var(--muted); margin: 0; }
+.stack-form .pick-card { gap: 10px; color: var(--text); font-size: 12px; font-weight: 400; }
+/* Respaldos */
+.backup-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.backup-card { padding: 16px 18px; display: grid; gap: 6px; align-content: start; }
+.backup-card h3 { font: 700 13px Manrope, sans-serif; margin: 0; color: #c7d0df; }
+.backup-card .hint { margin: 0; }
+.backup-big { font: 800 18px Manrope, sans-serif; margin: 2px 0; }
+.backup-big.is-ok { color: var(--green); }
+.backup-big.is-warn { color: #f2c77b; }
+.backup-path { font: 600 12px Consolas, monospace; color: #dfe5ef; margin: 0; overflow-wrap: anywhere; }
+.backup-alert { margin: 4px 0 0; font-size: 11px; color: #ffb4b4; }
+.backup-warn { margin: 4px 0 0; font-size: 11px; color: #f5d899; line-height: 1.5; }
+.backup-ok { margin: 4px 0 0; font-size: 11px; color: var(--green); }
+.backup-cmd { display: block; padding: 8px 10px; border-radius: 8px; background: #0b0f17; border: 1px solid var(--line); font-size: 10px; color: #c8c9ff; overflow-wrap: anywhere; }

@@ -1,0 +1,23 @@
+{# Selector de personas con tarjetas: avatar, nombre, usuario y marca ✓ al seleccionar.
+   Uso: {% from '_people_picker.html' import people_picker %}{{ people_picker('lawyer_ids', personas, ids_marcados) }} #}
+{% macro people_picker(field, people, selected=[], empty='No hay personas disponibles.') %}
+{% if people %}
+<div class="picker" data-picker>
+  <div class="picker-bar">
+    <span class="picker-count" data-picker-count>{{ selected|length }} seleccionado(s)</span>
+    {% if people|length > 6 %}<input type="search" class="picker-search" data-picker-search placeholder="Buscar por nombre o usuario…" aria-label="Buscar personas">{% endif %}
+    <span class="picker-links"><button type="button" class="picker-link" data-picker-all>Todos</button><button type="button" class="picker-link" data-picker-none>Ninguno</button></span>
+  </div>
+  <div class="picker-grid">
+    {% for person in people %}{% set initials = ((person.name.split()|map('first')|list)[:2]|join|upper) or '?' %}
+    <label class="pick-card" data-picker-item data-search="{{ (person.name ~ ' ' ~ (person.username or ''))|lower }}">
+      <input type="checkbox" name="{{ field }}" value="{{ person.id }}" {% if person.id in selected %}checked{% endif %}>
+      <span class="pick-avatar role-{{ person.role or 'lawyer' }}">{{ initials }}</span>
+      <span class="pick-text"><strong>{{ person.name }}</strong>{% if person.username %}<small>@{{ person.username }}{% if person.role == 'chief_lawyer' %} · jefe{% endif %}</small>{% endif %}</span>
+      <span class="pick-check" aria-hidden="true">✓</span>
+    </label>{% endfor %}
+  </div>
+  <p class="picker-empty" data-picker-empty hidden>Nadie coincide con la búsqueda.</p>
+</div>
+{% else %}<p class="empty-inline">{{ empty }}</p>{% endif %}
+{% endmacro %}

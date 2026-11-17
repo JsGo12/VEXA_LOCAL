@@ -1,0 +1,18 @@
+/* Asistente transversal: lista de conversaciones, alcance y fuentes por expediente/documento. */
+.assistant-layout { display: grid; grid-template-columns: minmax(230px, .6fr) minmax(420px, 1.4fr); gap: 15px; align-items: start; }
+.conversation-panel { padding: 16px; display: grid; gap: 12px; }
+.conversation-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 300px; overflow: auto; }
+.conversation-list button { width: 100%; text-align: left; background: transparent; border: 1px solid transparent; color: #c9d2e1; border-radius: 8px; padding: 8px 10px; font-size: 11px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conversation-list button:hover, .conversation-list button.active { background: #7779f71b; border-color: #7779f744; }
+.scope-box { border-top: 1px solid var(--line); padding-top: 10px; font-size: 11px; }
+.scope-box summary { cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: #d6ddeb; font-weight: 600; }
+.scope-list { display: grid; gap: 6px; max-height: 260px; overflow: auto; }
+.assistant-messages { height: 430px; }
+.chat-message.redacted { opacity: .7; font-style: italic; }
+.firm-sources { border-top: 1px solid #ffffff1c; margin-top: 9px; padding-top: 8px; display: grid; gap: 5px; }
+.firm-source { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 10px; }
+.source-case { padding: 2px 7px; border-radius: 5px; background: #7779f722; color: #c8c9ff; border: 1px solid #7779f744; }
+.source-doc { color: #8fdbdf; }
+a.source-doc:hover, .source-case:hover { text-decoration: underline; }
+.firm-source-case .source-doc { color: var(--muted); }
+@media (max-width: 800px) { .assistant-layout { grid-template-columns: 1fr; } }

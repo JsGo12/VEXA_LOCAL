@@ -1,0 +1,155 @@
+{% extends 'base.html' %}{% block title %}Permisos · VEXA{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/management.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/permissions.css') }}">{% endblock %}
+{% macro initials(name) %}{{ ((name.split()|map('first')|list)[:2]|join|upper) or '?' }}{% endmacro %}
+{% block content %}
+<div class="page-heading"><div><span class="eyebrow">CONTROL DE ACCESO</span><h1>Permisos</h1><p>Todo está denegado por defecto: el rol da los permisos básicos, aquí se ajustan por persona y se controla quién ve cada documento.</p></div></div>
+
+<nav class="admin-tabs perm-modes" aria-label="Modo de la vista de permisos">
+  <a class="admin-tab{% if mode == 'personas' %} is-active{% endif %}" href="{{ url_for('access.page', mode='personas', user_id=selected.id if selected else None) }}"><span class="admin-tab-icon">◉</span><span class="admin-tab-text"><strong>Por persona</strong><small>Qué puede hacer y qué casos ve</small></span><span class="admin-tab-count">{{ people|length }}</span></a>
+  <a class="admin-tab{% if mode == 'documentos' %} is-active{% endif %}" href="{{ url_for('access.page', mode='documentos', case_id=case_id) }}"><span class="admin-tab-icon">▤</span><span class="admin-tab-text"><strong>Por documento</strong><small>Quién ve cada documento y por qué</small></span><span class="admin-tab-count">{{ cases|length }}</span></a>
+</nav>
+
+{# =============================================================== POR PERSONA #}
+{% if mode == 'personas' %}
+<div class="perm-layout">
+  <aside class="panel perm-sidebar">
+    <h2>Personas</h2>
+    {% if people|length > 6 %}<input type="search" class="picker-search" data-filter-list="peopleList" placeholder="Buscar persona…" aria-label="Buscar persona">{% endif %}
+    <ul class="side-list" id="peopleList">{% for p in people %}
+      <li data-search="{{ (p.name ~ ' ' ~ p.username)|lower }}"><a class="side-item{% if selected and selected.id == p.id %} is-active{% endif %}{% if not p.active %} is-off{% endif %}" href="{{ url_for('access.page', mode='personas', user_id=p.id) }}">
+        <span class="person-avatar role-{{ p.role }}">{{ initials(p.name) }}</span><span class="side-text"><strong>{{ p.name }}</strong><small>{{ ROLE_LABELS.get(p.role, p.role) }}{% if not p.active %} · desactivada{% endif %}</small></span></a></li>
+    {% else %}<li class="empty-inline">{{ 'No hay cuentas.' if g.user.role == 'admin' else 'El administrador aún no te asigna abogados.' }}</li>{% endfor %}</ul>
+  </aside>
+
+  <section class="perm-main">
+  {% if selected %}
+    {% set own = selected.id == g.user.id %}
+    <div class="panel perm-hero">
+      <span class="profile-avatar-sm role-{{ selected.role }}">{{ initials(selected.name) }}</span>
+      <div class="perm-hero-text"><h2>{{ selected.name }}</h2><p>@{{ selected.username }} · <span class="role-chip role-{{ selected.role }}">{{ ROLE_LABELS.get(selected.role, selected.role) }}</span>{% if not selected.active %} · <span class="state-chip is-off">Desactivada</span>{% endif %}</p></div>
+      <div class="perm-stats">
+        <div><strong>{{ summary.permissions|length }}</strong><span>permisos activos</span></div>
+        <div><strong>{{ summary.scope|length }}</strong><span>casos que ve</span></div>
+        <div><strong>{{ summary.assistant_scope|length }}</strong><span>en el asistente</span></div>
+        <div><strong>{{ summary.overrides|length }}</strong><span>ajustes manuales</span></div>
+      </div>
+    </div>
+    {% if own %}<div class="flash">Esta es tu cuenta: nadie puede modificar sus propios permisos.</div>{% endif %}
+
+    <div class="perm-groups">{% for group in groups %}
+      <section class="panel perm-group">
+        <div class="perm-group-head"><span class="admin-tab-icon">{{ group.icon }}</span><h3>{{ group.label }}</h3><span class="admin-tab-count">{{ group.granted }}/{{ group.rows|length }}</span></div>
+        {% for r in group.rows %}<div class="perm-row">
+          <span class="perm-dot {{ 'is-on' if r.effective else 'is-off' }}" aria-hidden="true"></span>
+          <div class="perm-text"><strong>{{ r.label }}</strong><small>{{ r.source }}</small></div>
+          {% if not own %}<form method="post" action="{{ url_for('access.set_override', user_id=selected.id) }}" class="segmented" aria-label="Ajuste de «{{ r.label }}»">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="permission" value="{{ r.key }}">
+            <button name="effect" value="clear" class="{{ 'is-active' if not r.override }}" title="Usar lo que define el rol">Según rol</button>
+            <button name="effect" value="allow" class="{{ 'is-active is-allow' if r.override == 'allow' }}">Conceder</button>
+            <button name="effect" value="deny" class="{{ 'is-active is-deny' if r.override == 'deny' }}">Denegar</button>
+          </form>{% else %}<span class="perm-state {{ 'is-on' if r.effective else 'is-off' }}">{{ 'Permitido' if r.effective else 'Denegado' }}</span>{% endif %}
+        </div>{% endfor %}
+      </section>{% endfor %}</div>
+
+    <section class="panel perm-scope">
+      <div class="perm-group-head"><span class="admin-tab-icon">⌖</span><h3>Alcance de datos</h3><span class="admin-tab-count">{{ summary.scope|length }} caso(s)</span>
+        {% if not own %}<button type="button" class="action-btn action-btn-primary perm-head-action" data-open-dialog="grantDialog"><span class="action-icon">＋</span>Conceder alcance</button>{% endif %}</div>
+      <p class="hint">Además de estas concesiones, ve los casos asignados a su cuenta o a sus equipos{% if selected.role == 'chief_lawyer' %} y los de sus abogados a cargo{% endif %}.</p>
+      {% if grants %}<div class="grant-chips">{% for gr in grants %}<div class="grant-chip">
+        <span class="grant-kind kind-{{ gr.scope_type }}">{{ scope_types[gr.scope_type] }}</span>
+        <span class="grant-name">{% if gr.scope_type == 'team' %}{{ gr.team_name or ('Equipo #' ~ gr.scope_id) }}{% elif gr.scope_type == 'case' %}{{ gr.case_title or ('Caso #' ~ gr.scope_id) }}{% else %}Todos los casos{% endif %}<small>desde {{ gr.created_at[:10] }}</small></span>
+        {% if not own %}<form method="post" action="{{ url_for('access.revoke_grant', grant_id=gr.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="grant-remove" title="Revocar" aria-label="Revocar">✕</button></form>{% endif %}
+      </div>{% endfor %}</div>
+      {% else %}<p class="empty-inline">Sin concesiones explícitas.</p>{% endif %}
+    </section>
+
+    {% if not own %}<dialog id="grantDialog" class="action-dialog" aria-label="Conceder alcance"><div class="action-dialog-inner">
+      <div class="action-dialog-head"><div><span class="eyebrow">CONCEDER ALCANCE</span><h2>{{ selected.name }}</h2></div><button type="button" class="action-btn action-btn-ghost" data-close-dialog aria-label="Cerrar">✕</button></div>
+      <form method="post" action="{{ url_for('access.add_grant', user_id=selected.id) }}" class="stack-form" data-grant-form><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="choice-cards">
+          {% if can_grant_firm %}<label class="choice-card"><input type="radio" name="scope_type" value="firm"><span><strong>Toda la firma</strong><small>Todos los casos, presentes y futuros</small></span></label>{% endif %}
+          <label class="choice-card"><input type="radio" name="scope_type" value="team" {% if not can_grant_firm %}checked{% endif %}><span><strong>Un equipo</strong><small>Los casos asignados a ese equipo</small></span></label>
+          <label class="choice-card"><input type="radio" name="scope_type" value="case" {% if can_grant_firm %}checked{% endif %}><span><strong>Un caso</strong><small>Solo ese expediente</small></span></label>
+        </div>
+        <label data-grant-target>Equipo o caso<select name="scope_id">
+          <optgroup label="Equipos" data-kind="team">{% for t in teams %}<option value="team:{{ t.id }}">{{ t.name }}</option>{% endfor %}</optgroup>
+          <optgroup label="Casos" data-kind="case">{% for c in cases %}<option value="case:{{ c.id }}">{{ c.reference or ('#' ~ c.id) }} · {{ c.title }}</option>{% endfor %}</optgroup>
+        </select></label>
+        <p class="hint">Solo puedes conceder alcances que tú mismo tienes.</p>
+        <div class="dialog-actions"><button type="button" class="action-btn action-btn-ghost" data-close-dialog>Cancelar</button><button class="action-btn action-btn-primary">Conceder</button></div>
+      </form></div></dialog>{% endif %}
+  {% else %}
+    <div class="empty-state"><div class="empty-symbol">◉</div><h3>Elige una persona</h3><p>Selecciona una cuenta a la izquierda para ver y ajustar sus permisos y su alcance.</p></div>
+  {% endif %}
+  </section>
+</div>
+{% endif %}
+
+{# ============================================================= POR DOCUMENTO #}
+{% if mode == 'documentos' %}
+<div class="perm-layout">
+  <aside class="panel perm-sidebar">
+    <h2>Casos</h2>
+    {% if cases|length > 6 %}<input type="search" class="picker-search" data-filter-list="caseList" placeholder="Buscar caso…" aria-label="Buscar caso">{% endif %}
+    <ul class="side-list" id="caseList">{% for c in cases %}
+      <li data-search="{{ (c.title ~ ' ' ~ (c.reference or ''))|lower }}"><a class="side-item{% if case_id == c.id %} is-active{% endif %}" href="{{ url_for('access.page', mode='documentos', case_id=c.id) }}">
+        <span class="case-icon">§</span><span class="side-text"><strong>{{ c.title }}</strong><small>{{ c.reference or ('#' ~ c.id) }} · {{ c.document_count }} documento(s)</small></span></a></li>
+    {% else %}<li class="empty-inline">No hay casos en tu alcance.</li>{% endfor %}</ul>
+  </aside>
+
+  <section class="perm-main">
+  {% if current_case %}
+    <div class="panel perm-hero">
+      <span class="case-icon perm-case-icon">§</span>
+      <div class="perm-hero-text"><h2>{{ current_case.title }}</h2><p>{{ current_case.reference or ('Caso #' ~ current_case.id) }} · Responsable: {{ current_case.team_name or current_case.assignee_name }}</p></div>
+      <div class="perm-stats"><div><strong>{{ documents|length }}</strong><span>documentos</span></div><div><strong>{{ documents|selectattr('restricted')|list|length }}</strong><span>restringidos</span></div></div>
+      <a class="action-btn action-btn-ghost" href="{{ url_for('cases.case_workspace', case_id=current_case.id) }}">Abrir caso →</a>
+    </div>
+    <p class="hint perm-rules-hint"><strong>Cómo se decide:</strong> sin permiso de ver documentos o sin alcance sobre el caso, no lo ve. Una regla «Denegar» siempre bloquea. Un documento <em>restringido</em> solo lo ven quienes tienen una regla «Permitir», aunque tengan alcance de toda la firma.</p>
+
+    {% for d in documents %}<article class="panel doc-card{% if d.restricted %} is-restricted{% endif %}">
+      <header class="doc-head">
+        <span class="doc-icon">{{ d.ext }}</span>
+        <div class="doc-title"><h3>{{ d.name }}</h3><small>Subido por {{ d.uploader }} · {{ d.uploaded_at[:16] }}{% if d.size %} · {{ d.size }} (cifrado){% endif %}{% if d.sha %} · huella {{ d.sha }}…{% endif %}{% if not d.available %} · <span class="text-danger">archivo no disponible</span>{% endif %}</small></div>
+        <span class="doc-state {{ 'is-restricted' if d.restricted else 'is-open' }}">{{ '🔒 Restringido' if d.restricted else 'Abierto al alcance' }}</span>
+        <form method="post" action="{{ url_for('access.set_restriction', document_id=d.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="restricted" value="{{ '0' if d.restricted else '1' }}"><button class="action-btn {{ 'action-btn-ghost' if d.restricted else 'action-danger' }}">{{ 'Quitar restricción' if d.restricted else 'Restringir' }}</button></form>
+      </header>
+      <div class="doc-body">
+        <div class="doc-col">
+          <h4>Quién puede verlo <span class="admin-tab-count">{{ d.can_see|length }}</span></h4>
+          {% for p in d.can_see %}<div class="who"><span class="person-avatar role-{{ p.role }}">{{ initials(p.name) }}</span><span><strong>{{ p.name }}</strong><small>{{ p.why }}{% if not p.download %} · sin descarga{% endif %}</small></span></div>
+          {% else %}<p class="empty-inline">Nadie más puede verlo.</p>{% endfor %}
+          {% if d.blocked %}<h4 class="doc-sub">Sin acceso, aunque tienen el caso <span class="admin-tab-count">{{ d.blocked|length }}</span></h4>
+          {% for p in d.blocked %}<div class="who is-blocked"><span class="person-avatar role-{{ p.role }}">{{ initials(p.name) }}</span><span><strong>{{ p.name }}</strong><small>{{ p.why }}</small></span></div>{% endfor %}{% endif %}
+        </div>
+        <div class="doc-col">
+          <h4>Reglas de este documento <span class="admin-tab-count">{{ d.rules|length }}</span><button type="button" class="action-btn perm-head-action" data-open-dialog="rule-{{ d.id }}"><span class="action-icon">＋</span>Regla</button></h4>
+          {% for rule in d.rules %}<div class="rule-row"><span class="rule-effect {{ 'is-allow' if rule.effect == 'allow' else 'is-deny' }}">{{ 'Permitir' if rule.effect == 'allow' else 'Denegar' }}</span><span class="rule-name">{{ rule.name }} <small>@{{ rule.username }}</small></span>
+            <form method="post" action="{{ url_for('access.set_document_acl', document_id=d.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="user_id" value="{{ rule.user_id }}"><input type="hidden" name="effect" value="clear"><button class="grant-remove" title="Quitar regla" aria-label="Quitar regla">✕</button></form></div>
+          {% else %}<p class="empty-inline">Sin reglas: se aplica el alcance de cada persona.</p>{% endfor %}
+          <h4 class="doc-sub">Últimas descargas</h4>
+          {% for dl in d.downloads %}<div class="download-row"><span>@{{ dl.who }}</span><small>{{ dl.when }}</small></div>
+          {% else %}<p class="empty-inline">Nadie lo ha descargado (en el período que conserva la auditoría).</p>{% endfor %}
+        </div>
+      </div>
+      <dialog id="rule-{{ d.id }}" class="action-dialog" aria-label="Nueva regla para {{ d.name }}"><div class="action-dialog-inner">
+        <div class="action-dialog-head"><div><span class="eyebrow">NUEVA REGLA</span><h2>{{ d.name }}</h2></div><button type="button" class="action-btn action-btn-ghost" data-close-dialog aria-label="Cerrar">✕</button></div>
+        <form method="post" action="{{ url_for('access.set_document_acl', document_id=d.id) }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label>Persona<select name="user_id" required>{% for p in acl_people %}<option value="{{ p.id }}">{{ p.name }} · @{{ p.username }}</option>{% endfor %}</select></label>
+          <div class="choice-cards choice-cards-2">
+            <label class="choice-card is-allow"><input type="radio" name="effect" value="allow" checked><span><strong>Permitir</strong><small>Puede verlo aunque esté restringido (si tiene el caso)</small></span></label>
+            <label class="choice-card is-deny"><input type="radio" name="effect" value="deny"><span><strong>Denegar</strong><small>No lo ve nunca, aunque tenga el caso</small></span></label>
+          </div>
+          <div class="dialog-actions"><button type="button" class="action-btn action-btn-ghost" data-close-dialog>Cancelar</button><button class="action-btn action-btn-primary">Guardar regla</button></div>
+        </form></div></dialog>
+    </article>{% else %}<div class="empty-state"><div class="empty-symbol">▤</div><h3>Este caso no tiene documentos</h3><p>Agrégalos desde el expediente o desde Administración.</p></div>{% endfor %}
+  {% elif case_id %}
+    <div class="empty-state"><div class="empty-symbol">▤</div><h3>Caso fuera de tu alcance</h3><p>Elige uno de la lista.</p></div>
+  {% else %}
+    <div class="empty-state"><div class="empty-symbol">▤</div><h3>Elige un caso</h3><p>Selecciona un caso a la izquierda para ver quién puede ver cada documento y por qué.</p></div>
+  {% endif %}
+  </section>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/case-dialog.js') }}"></script><script src="{{ url_for('static', filename='js/permissions.js') }}"></script>{% endblock %}

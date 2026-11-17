@@ -1,39 +1,27 @@
-# VEXA en red local: guía de demostración
+# VEXA Local: alcance de red y comprobación de tráfico
 
-Esta versión agrega un flujo web con cuentas separadas para administrador y abogados. `main.py` conserva la interfaz de escritorio previa; la versión con acceso por navegador se inicia con `web_app.py`.
+## Alcance
 
-## Iniciar en el computador que hará de servidor
+- **Modo local (predeterminado):** el backend escucha únicamente en `127.0.0.1`. `VEXA_HOST` solo admite loopback; un valor como `0.0.0.0` o una IP de la red local detiene el arranque con un error de configuración. Electron usa un puerto local aleatorio.
+- **Modo Tailscale (opcional):** con `TAILSCALE_ENABLED=true`, el servidor Waitress independiente (`backend\run.py`) escucha además en la IP 100.x de Tailscale del equipo. No se usa `0.0.0.0`, Funnel ni port forwarding. Ver [docs/tailscale.md](docs/tailscale.md).
+- En ambos modos, cada petición cuyo origen no sea loopback (o Tailscale, si está activo) recibe 403.
+- Ollama se consulta en `127.0.0.1:11434`; VEXA rechaza un `OLLAMA_HOST` externo.
 
-Desde una terminal de VS Code:
+## Comprobar el listener
 
 ```powershell
-cd "C:\Users\josue\Documents\ChatGPT\CAPSTONE - VEXA\01_VEXA_LOCAL-main"
-pip install -r requirements.txt
-python web_app.py
+Get-NetTCPConnection -State Listen -LocalPort 5000 |
+  Select-Object LocalAddress, LocalPort, OwningProcess
 ```
 
-La primera visita a `http://127.0.0.1:5000` mostrará el formulario para crear la cuenta administradora. Los datos se guardan en `%USERPROFILE%\.vexa_local\vexa_web.db`; los documentos se guardan localmente en `%USERPROFILE%\.vexa_local\case_documents`.
+En modo local, `LocalAddress` debe ser solo `127.0.0.1`; con Tailscale, `127.0.0.1` y la IP `100.x`. Electron usa un puerto dinámico: consulta `%USERPROFILE%\.vexa_local\server.json` o busca el proceso `python`/`VexaBackend` en el Monitor de recursos (`resmon.exe` → Red).
 
-Ollama debe estar iniciado en ese computador y tener disponible el modelo `llama3.2`, que es el primer modelo configurado en `rag_core.py`.
+## Protocolo breve para observar tráfico
 
-## Probar las dos vistas
+1. Usa documentos ficticios y cierra navegadores, sincronizadores y otras aplicaciones que generen tráfico de fondo. Anota la hora de inicio y el estado de Ollama.
+2. Abre el Monitor de recursos (`resmon.exe`) → **Red**. En **Procesos con actividad de red**, localiza `python`, `VexaBackend` y el proceso de Ollama. Revisa las direcciones remotas mientras abres un caso y haces una consulta.
+3. Para una captura más detallada, usa Wireshark en la interfaz activa y, para localhost, el adaptador de loopback de Npcap. El tráfico del backend a Ollama debe quedarse en loopback; no atribuyas al proyecto conexiones de otros procesos.
+4. Con Tailscale activo verás además tráfico de `tailscaled` hacia la coordinación de Tailscale y, a veces, relays DERP: es el plano de control/transporte cifrado de la VPN, no contenido de VEXA.
+5. Conserva la captura solo si es necesaria: puede contener nombres de host y metadatos. Los informes del evaluador RAG pueden contener respuestas documentales: guárdalos bajo `%USERPROFILE%\.vexa_local`.
 
-1. Inicia sesión como administrador.
-2. Crea una cuenta para uno o más abogados.
-3. Crea un equipo y selecciona sus integrantes, si el caso se asignará al grupo.
-4. Crea un caso, escribe un resumen breve, indica la fecha límite, selecciona a la persona o equipo y adjunta documentos PDF o DOCX ficticios.
-5. Cierra la sesión del administrador e inicia con la cuenta del abogado.
-6. En “Mis casos”, abre el caso para descargar sus documentos o consultar el chat.
-
-## Probar desde otro equipo de la misma red
-
-El servidor escucha en el puerto `5000` en las interfaces de red locales. En el computador servidor, ejecuta `ipconfig` y localiza la dirección IPv4 de su red. Desde el otro equipo, abre `http://DIRECCION-IP-DEL-SERVIDOR:5000` en el navegador. Si Windows Firewall pregunta, permite el acceso solo en la red privada de demostración.
-
-## Alcance de este prototipo
-
-- El servidor valida en el backend que cada abogado pertenezca al equipo o sea la persona asignada antes de mostrar el caso, descargar sus archivos o consultar el chat.
-- La indexación RAG se conserva en memoria por caso mientras corre el servidor; al reiniciar se reconstruirá cuando se vuelva a consultar.
-- El chat usa BM25. En expedientes con muy pocos fragmentos, el ranking usa coincidencia léxica como respaldo para no descartar contexto por scores cero o negativos. Si la consulta no comparte términos con el documento, prueba con un nombre, una fecha, un monto o una frase textual.
-- La vista del abogado muestra el resumen ingresado al crear el caso y una vista previa del primer documento para casos guardados con una versión anterior.
-- En el caso, el indicador del chat distingue si Ollama responde, si falta el modelo `llama3.2` o si el servidor de Ollama está apagado.
-- Esta versión está preparada para una presentación académica con datos sintéticos. Usa el servidor de desarrollo de Flask y HTTP sin cifrado TLS; no la expongas a Internet ni la uses con expedientes reales. Una instalación para un estudio requiere despliegue endurecido, HTTPS, copias de seguridad, controles de operación y revisión de seguridad.
+La app no necesita un servidor externo para consultar documentos. La instalación sí requiere Internet para dependencias, Ollama y modelos. Esta comprobación observa una ejecución concreta; no sustituye una auditoría de cada proceso del sistema.

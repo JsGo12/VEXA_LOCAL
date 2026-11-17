@@ -1,0 +1,58 @@
+{% extends 'base.html' %}{% block title %}Mi perfil · VEXA{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">{% endblock %}
+{% block content %}
+{% set initials = (g.user.name.split()|map('first')|list)[:2]|join|upper %}
+<section class="panel profile-hero">
+  <span class="profile-avatar role-{{ g.user.role }}">{{ initials or '?' }}</span>
+  <div class="profile-id">
+    <span class="eyebrow">MI PERFIL</span>
+    <h1>{{ g.user.name }}</h1>
+    <p>@{{ g.user.username }} · <span class="role-pill role-{{ g.user.role }}">{{ ROLE_LABELS.get(g.user.role, g.user.role) }}</span>{% if details.created_at %} · Cuenta creada el {{ details.created_at[:10] }}{% endif %}</p>
+  </div>
+</section>
+
+<div class="profile-stats">
+  <div class="panel profile-stat"><strong>{{ total_cases }}</strong><span>casos en tu alcance</span></div>
+  <div class="panel profile-stat stat-danger"><strong>{{ overdue }}</strong><span>vencidos</span></div>
+  <div class="panel profile-stat stat-warning"><strong>{{ due_soon }}</strong><span>vencen en 7 días</span></div>
+  <div class="panel profile-stat"><strong>{{ details.updates_count }}</strong><span>notas y avances registrados</span></div>
+  <div class="panel profile-stat"><strong>{{ details.questions_count }}</strong><span>consultas al chat</span></div>
+</div>
+
+<div class="profile-grid">
+  <section class="panel profile-card">
+    <div class="profile-card-head"><h2>Mis casos</h2><a class="action-btn" href="{{ url_for('cases.lawyer_dashboard') }}">Ver todos</a></div>
+    {% if cases %}<ul class="profile-cases">{% for c in cases %}<li class="deadline-{{ c.deadline_state }}">
+      <a href="{{ url_for('cases.case_workspace', case_id=c.id) }}"><strong>{{ c.title }}</strong><small>{{ c.status_label }} · {{ c.progress }} %</small></a>
+      <span class="deadline-dot" title="Fecha límite">{{ c.due_at[:10] }}</span></li>{% endfor %}</ul>
+    {% else %}<p class="empty-inline">Aún no tienes casos asignados.</p>{% endif %}
+  </section>
+
+  <section class="panel profile-card">
+    <div class="profile-card-head"><h2>Datos de la cuenta</h2></div>
+    <form method="post" action="{{ url_for('auth.profile') }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Nombre visible<input name="name" value="{{ g.user.name }}" maxlength="100" required></label>
+      <label>Usuario <small>Lo cambia el administrador</small><input value="@{{ g.user.username }}" disabled></label>
+      <button class="button button-secondary">Guardar nombre</button></form>
+    {% if details.chiefs %}<div class="profile-relation"><span class="eyebrow">TU ABOGADO JEFE</span><p>{{ details.chiefs|join(', ') }}</p></div>{% endif %}
+    {% if g.user.role == 'chief_lawyer' %}<div class="profile-relation"><span class="eyebrow">ABOGADOS A TU CARGO</span>
+      {% if details.lawyers %}<div class="chip-list">{% for l in details.lawyers %}<span class="chip">{{ l.name }}</span>{% endfor %}</div>{% else %}<p>El administrador aún no te asigna abogados.</p>{% endif %}</div>{% endif %}
+  </section>
+
+  <section class="panel profile-card" id="seguridad">
+    <div class="profile-card-head"><h2>Seguridad</h2></div>
+    <p class="hint">Al cambiar la contraseña se cierran tus otras sesiones abiertas.</p>
+    <form method="post" action="{{ url_for('auth.change_password') }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="profile">
+      <label>Contraseña actual<input name="current_password" type="password" required autocomplete="current-password"></label>
+      <label>Nueva contraseña <small>Mínimo 10 caracteres</small><input name="new_password" type="password" minlength="10" required autocomplete="new-password"></label>
+      <label>Repite la nueva contraseña<input name="confirm_password" type="password" minlength="10" required autocomplete="new-password"></label>
+      <button class="button button-primary">Cambiar contraseña</button></form>
+  </section>
+
+  <section class="panel profile-card">
+    <div class="profile-card-head"><h2>Qué puedes hacer</h2></div>
+    {% if permissions %}<ul class="permission-list">{% for key, label in permissions %}<li><span class="perm-check">✓</span>{{ label }}</li>{% endfor %}</ul>
+    {% else %}<p class="empty-inline">Tu cuenta no tiene permisos activos.</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

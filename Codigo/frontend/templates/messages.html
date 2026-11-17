@@ -1,0 +1,11 @@
+{% extends 'base.html' %}{% block title %}Mensajes · VEXA{% endblock %}
+{% block content %}
+<div class="page-heading"><div><span class="eyebrow">EQUIPO</span><h1>Mensajes</h1><p>Conversaciones de los casos en tu alcance: documentos faltantes, plazos, revisiones y avisos automáticos.</p></div></div>
+{% if items %}<ul class="inbox-list">{% for c in items %}<li>
+  <a class="inbox-item{% if c.unread %} has-unread{% endif %}" href="{{ url_for('cases.case_workspace', case_id=c.case_id, panel='mensajes') }}#mensajes">
+    <span class="case-icon">§</span>
+    <span class="inbox-text"><strong>{{ c.title }}</strong><span>{% if c.kind == 'sistema' %}Aviso: {% else %}{{ c.author }}: {% endif %}{{ c.preview }}</span><small>{{ c.reference or ('Caso #' ~ c.case_id) }} · {{ c.when }}</small></span>
+    {% if c.unread %}<span class="tab-badge">{{ c.unread }}</span>{% endif %}
+  </a></li>{% endfor %}</ul>
+{% else %}<div class="empty-state"><div class="empty-symbol">✉</div><h3>Aún no hay conversaciones</h3><p>Abre un caso y usa la pestaña «Mensajes del equipo» para escribirle a los demás.</p></div>{% endif %}
+{% endblock %}

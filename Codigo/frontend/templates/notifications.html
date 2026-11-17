@@ -1,0 +1,14 @@
+{% extends 'base.html' %}{% block title %}Notificaciones · VEXA{% endblock %}
+{% block content %}
+{% set unread = items|selectattr('read_at', 'none')|list|length %}
+<div class="page-heading"><div><span class="eyebrow">AVISOS</span><h1>Notificaciones</h1><p>Asignaciones, notas, cambios de avance o de fecha y recordatorios de vencimiento de tus casos.</p></div>
+  {% if unread %}<form method="post" action="{{ url_for('notifications.mark_all_read') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="action-btn">Marcar todas como leídas ({{ unread }})</button></form>{% endif %}</div>
+{% if items %}<ul class="notif-list">{% for n in items %}<li>
+  <a class="notif-item{% if not n.read_at %} is-unread{% endif %}" href="{{ url_for('notifications.open_notification', notification_id=n.id) }}">
+    <span class="notif-kind kind-{{ n.kind }}" aria-hidden="true">{{ n.icon }}</span>
+    <span class="notif-text"><strong>{{ n.title }}</strong><small>{{ n.when }}{% if n.message %} · {{ n.message }}{% endif %}</small></span>
+    {% if not n.read_at %}<span class="notif-dot" title="Sin leer"></span>{% endif %}
+  </a></li>{% endfor %}</ul>
+{% else %}<div class="empty-state"><div class="empty-symbol">🔔</div><h3>No tienes notificaciones</h3><p>Aquí aparecerán los avisos de tus casos.</p></div>{% endif %}
+<p class="hint">Los avisos leídos se borran solos después de 60 días.</p>
+{% endblock %}

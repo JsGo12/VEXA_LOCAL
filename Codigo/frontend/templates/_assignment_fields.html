@@ -1,0 +1,7 @@
+<div class="form-row assignment-fields">
+  <label>Asignar a<select name="assignment_type" class="js-assignment-type" data-target="assignee-{{ assign_id }}"><option value="user">Abogado/a</option><option value="team">Equipo</option></select></label>
+  <label>Responsable<select name="assignee_id" id="assignee-{{ assign_id }}" required>
+    <optgroup label="Abogados">{% for person in assignees %}<option value="{{ person.id }}" data-kind="user">{{ person.name }} · @{{ person.username }}{% if person.role == 'chief_lawyer' %} (jefe){% endif %}</option>{% endfor %}</optgroup>
+    <optgroup label="Equipos">{% for team in teams %}<option value="{{ team.id }}" data-kind="team">{{ team.name }}</option>{% endfor %}</optgroup>
+  </select></label>
+</div>

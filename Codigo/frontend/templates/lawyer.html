@@ -1,0 +1,6 @@
+{% extends 'base.html' %}{% block title %}Mis casos · VEXA{% endblock %}
+{% block content %}{% from '_case_collection.html' import case_collection with context %}
+<div class="page-heading"><div><span class="eyebrow">ESPACIO DE TRABAJO</span><h1>Mis casos</h1><p>Casos asignados directamente o a tus equipos.</p></div><span class="count-pill">{{ cases|length }} casos</span></div>
+{{ case_collection(cases, 'mis-casos', empty_title='No tienes casos asignados', empty_text='Cuando te asignen un caso (directamente o a tu equipo), aparecerá aquí.') }}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/case-collection.js') }}"></script>{% endblock %}

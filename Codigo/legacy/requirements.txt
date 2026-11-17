@@ -1,0 +1,4 @@
+# Solo para las interfaces antiguas (Tkinter / pywebview). No las usa la versión actual.
+-r ../backend/requirements.txt
+tkinterdnd2>=0.4.3
+pywebview>=6.2.1

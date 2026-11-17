@@ -1,0 +1,41 @@
+# VEXA Local (carpeta Codigo/). Complementa el .gitignore de la raíz del repositorio.
+
+# Configuración y secretos locales: solo se versiona la plantilla
+.env
+.env.*
+!.env.example
+!.env.docker.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Datos de VEXA. Por defecto viven en %USERPROFILE%\.vexa_local (fuera del repo); estas reglas
+# protegen el caso en que alguien apunte VEXA_DATA_DIR dentro del proyecto.
+data/
+.vexa_local/
+case_documents/
+carpeta_vigilada/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.vexabackup
+vault.key
+web_secret.key
+credenciales_admin_inicial.txt
+server.json
+vexa_server.lock
+*.log
+
+# Empaquetado (build.ps1 regenera el .spec)
+desktop/backend/.venv/
+desktop/backend/build/
+desktop/backend/dist/
+desktop/backend/*.spec
+desktop/electron/node_modules/
+desktop/electron/release/

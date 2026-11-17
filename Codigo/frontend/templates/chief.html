@@ -1,0 +1,16 @@
+{% extends 'base.html' %}{% block title %}Panel del abogado jefe · VEXA{% endblock %}
+{% block content %}{% from '_case_collection.html' import case_collection with context %}
+<div class="page-heading"><div><span class="eyebrow">ABOGADO/A JEFE</span><h1>Panel de la firma</h1><p>Supervisa los expedientes, administra el equipo y consulta información autorizada de la firma.</p></div><span class="local-badge">● Servidor privado</span></div>
+<div class="stat-row">
+  <a class="panel stat-card" href="{{ url_for('assistant.page') }}"><span class="eyebrow">ASISTENTE TRANSVERSAL</span><strong>{{ assistant_cases }}</strong><span>expediente(s) en tu alcance del asistente</span></a>
+  {% if totals %}
+  <a class="panel stat-card" href="{{ url_for('admin.dashboard') }}"><span class="eyebrow">CASOS DE LA FIRMA</span><strong>{{ totals.cases }}</strong><span>registrados</span></a>
+  <a class="panel stat-card" href="{{ url_for('admin.dashboard') }}"><span class="eyebrow">EQUIPO</span><strong>{{ totals.lawyers }}</strong><span>abogados activos · {{ totals.teams }} equipo(s)</span></a>
+  {% endif %}
+</div>
+{% if assistant_cases == 0 %}<div class="flash">Tu alcance de datos aún no incluye expedientes para el asistente. Un administrador debe concederte un alcance explícito (firma, equipo o caso) en <strong>Permisos</strong>.</div>{% endif %}
+<section class="cases-section"><div class="section-heading"><div><span class="eyebrow">TU ALCANCE</span><h2>Expedientes que puedes abrir</h2></div><span class="count-pill">{{ cases|length }} casos</span></div>
+{{ case_collection(cases, 'jefe-casos', empty_title='No tienes expedientes en tu alcance', empty_text='Los casos de tus abogados, los asignados a ti o los concedidos explícitamente aparecerán aquí.') }}
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/case-collection.js') }}"></script>{% endblock %}

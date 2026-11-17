@@ -1,16 +1,19 @@
-# run.py (Crear en la raíz de VEXA_LOCAL)
-from waitress import serve
+"""Atajo desde la raíz del repositorio al servidor real de VEXA (Codigo/backend/run.py).
 
-# Importamos la aplicación desde la carpeta VexaApp
-# (Asegúrate de cambiar 'web_app' por 'app' si tu app principal está en app.py)
-from VexaApp.web_app import app  
+    python run.py            Waitress (127.0.0.1 y, si TAILSCALE_ENABLED=true, la IP de Tailscale)
+    python run.py --check    Valida Codigo/.env sin iniciar nada
 
-if __name__ == '__main__':
-    print("=" * 50)
-    print(" Servidor Waitress para VEXA_LOCAL iniciado")
-    print(" Acceso local: http://127.0.0.1:8080")
-    print(" Acceso remoto (Tailscale): http://<TU-IP-DE-TAILSCALE>:8080")
-    print("=" * 50)
-    
-    # Servimos la app abierta para conexiones de Tailscale
-    serve(app, host='0.0.0.0', port=8080)
+La versión anterior de este archivo importaba `VexaApp.web_app` (ya no existe) y escuchaba en
+0.0.0.0:8080, exponiendo VEXA a toda la red local. La configuración ahora vive en Codigo/.env.
+"""
+import runpy
+import sys
+from pathlib import Path
+
+backend_run = Path(__file__).resolve().parent / "Codigo" / "backend" / "run.py"
+venv_python = backend_run.parents[1] / ".venv" / "Scripts" / "python.exe"
+if not venv_python.exists():
+    print("Falta el entorno de Codigo. Ejecuta en Codigo:  python -m venv .venv  y  "
+          ".\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt", file=sys.stderr)
+sys.argv[0] = str(backend_run)
+runpy.run_path(str(backend_run), run_name="__main__")
