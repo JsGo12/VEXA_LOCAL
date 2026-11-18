@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import time
 from dataclasses import dataclass
-from typing import List, Optional, Set
+from typing import Optional, Set
 
 from vexa.rag import core as rag_core
 

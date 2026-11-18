@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import List, Set
 
 from vexa.database import connect
 from vexa.permissions import policy

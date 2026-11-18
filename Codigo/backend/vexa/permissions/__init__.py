@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from functools import wraps
-from typing import Iterable
 
 from flask import abort, current_app, g, redirect, url_for
 

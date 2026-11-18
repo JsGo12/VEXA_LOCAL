@@ -10,11 +10,9 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
-from rank_bm25 import BM25Okapi
 
 from vexa.rag import formats
 from vexa.rag import core as rag_core
