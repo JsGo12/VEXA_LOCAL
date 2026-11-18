@@ -1,4 +1,4 @@
-import os, sys, numpy as np
+import numpy as np
 import pytest
 from vexa.rag import core as rag_core
 from vexa.rag import hybrid as rag_hybrid

@@ -1,4 +1,3 @@
-import numpy as np
 
 from vexa.rag import core as rag_core
 from vexa.rag import hybrid as rag_hybrid
