@@ -77,6 +77,15 @@ Vexa.stoppedText = (query, hasPartial) => {
   return hasPartial ? 'Respuesta detenida. Quedó incompleta y no se guardó en el historial.' : 'Consulta detenida.';
 };
 
+// Agrega una nota en cursiva al final de un mensaje del chat (p. ej. "Respuesta detenida").
+Vexa.addChatNote = (block, text) => {
+  const note = document.createElement('div');
+  note.className = 'chat-note';
+  note.textContent = text;
+  block.appendChild(note);
+  if (block.parentElement) block.parentElement.scrollTop = block.parentElement.scrollHeight;
+};
+
 // Cambia el botón del formulario entre "Consultar" y "Detener".
 Vexa.setBusyButton = (button, busy) => {
   button.textContent = busy ? 'Detener' : 'Consultar';

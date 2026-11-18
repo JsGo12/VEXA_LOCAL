@@ -129,14 +129,6 @@
   const button = form.querySelector('button');
   let query = null;                                   // consulta en curso (se puede detener)
 
-  const addNote = (block, text) => {
-    const note = document.createElement('div');
-    note.className = 'chat-note';
-    note.textContent = text;
-    block.appendChild(note);
-    messages.scrollTop = messages.scrollHeight;
-  };
-
   form.addEventListener('submit', async event => {
     event.preventDefault();
     if (query) { query.stop(); return; }              // el botón dice "Detener" mientras responde
@@ -181,7 +173,7 @@
       wait.remove();
       if (query.reason) {
         const partial = Boolean(block && answer.trim());
-        addNote(partial ? block : addMessage('', 'assistant-message stopped'), Vexa.stoppedText(query, partial));
+        Vexa.addChatNote(partial ? block : addMessage('', 'assistant-message stopped'), Vexa.stoppedText(query, partial));
         loadConversations();                          // la conversación pudo crearse antes de detener
       } else {
         addMessage(error.message, 'assistant-message');
