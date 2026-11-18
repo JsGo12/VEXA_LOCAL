@@ -6,6 +6,7 @@ cifrar se siguen leyendo con normalidad (lectura transparente).
 """
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import secrets
@@ -106,44 +107,46 @@ def protected_key_file(key: bytes) -> bytes:
     return b"DPAPI:" + _dpapi(key, True) if sys.platform == "win32" else key
 
 
-def _write_atomic(path: Path, data: bytes) -> None:
-    """Replace a small key file atomically, cleaning up after interruptions."""
+def _write_temp(path: Path, data: bytes) -> Path:
+    """Write data to a new temp file next to path (fsync + 0600) and return its path.
+
+    If writing fails, the partial temp file is removed before re-raising.
+    """
     tmp = path.with_name(path.name + "." + secrets.token_hex(8) + ".tmp")
     try:
         with tmp.open("xb") as f:
             f.write(data)
             f.flush()
             os.fsync(f.fileno())
-        try:
+        with contextlib.suppress(OSError):
             os.chmod(tmp, 0o600)
-        except OSError:
-            pass
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+    return tmp
+
+
+def _write_atomic(path: Path, data: bytes) -> None:
+    """Replace a small key file atomically, cleaning up after interruptions."""
+    tmp = _write_temp(path, data)
+    try:
         os.replace(tmp, path)
     finally:
         tmp.unlink(missing_ok=True)
 
 
 def _create_atomic(path: Path, data: bytes) -> None:
-    """Create a key exactly once, even if two VEXA processes start together."""
-    tmp = path.with_name(path.name + "." + secrets.token_hex(8) + ".tmp")
+    """Create a key exactly once, even if two VEXA processes start together.
+
+    Raises FileExistsError if another process won the create race; _get then reloads it.
+    """
+    tmp = _write_temp(path, data)
     try:
-        with tmp.open("xb") as f:
-            f.write(data)
-            f.flush()
-            os.fsync(f.fileno())
-        try:
-            os.chmod(tmp, 0o600)
-        except OSError:
-            pass
-        try:
-            if sys.platform == "win32":
-                # Windows rename is atomic and refuses to replace an existing key.
-                os.rename(tmp, path)
-            else:
-                os.link(tmp, path)
-        except FileExistsError:
-            # Another process won the create race; _get will need to reload it.
-            raise
+        if sys.platform == "win32":
+            # Windows rename is atomic and refuses to replace an existing key.
+            os.rename(tmp, path)
+        else:
+            os.link(tmp, path)
     finally:
         tmp.unlink(missing_ok=True)
 
