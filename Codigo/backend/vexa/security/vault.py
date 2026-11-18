@@ -49,6 +49,11 @@ def _dpapi(data: bytes, protect: bool) -> bytes:
         ctypes.windll.kernel32.LocalFree(salida.pbData)
 
 
+def _unwrap(raw: bytes) -> bytes:
+    """Contenido de vault.key -> clave Fernet (descifra con DPAPI si tiene el prefijo)."""
+    return _dpapi(raw[6:], False) if raw.startswith(b"DPAPI:") else raw
+
+
 def _get() -> Fernet:
     global _fernet, _key
     with _lock:
@@ -59,34 +64,25 @@ def _get() -> Fernet:
         ruta = carpeta / "vault.key"
         if ruta.exists():
             raw = ruta.read_bytes()
-            if raw.startswith(b"DPAPI:"):
-                key = _dpapi(raw[6:], False)
-            else:
-                # Keep reading keys created by older versions. On Windows,
+            key = _unwrap(raw)
+            if not raw.startswith(b"DPAPI:") and sys.platform == "win32":
+                # Keep reading keys created by older versions; on Windows,
                 # upgrade legacy plaintext keys in place when DPAPI works.
-                key = raw
-                if sys.platform == "win32":
-                    try:
-                        _write_atomic(ruta, b"DPAPI:" + _dpapi(key, True))
-                    except Exception:
-                        LOGGER.warning("No se pudo proteger una clave antigua con DPAPI; se conserva para no perder acceso a los datos.")
+                try:
+                    _write_atomic(ruta, b"DPAPI:" + _dpapi(key, True))
+                except Exception:
+                    LOGGER.warning("No se pudo proteger una clave antigua con DPAPI; se conserva para no perder acceso a los datos.")
         else:
             key = Fernet.generate_key()
-            if sys.platform == "win32":
-                # New Windows keys must never silently fall back to plaintext.
-                raw = b"DPAPI:" + _dpapi(key, True)
-            else:
-                raw = key
+            # On Windows new keys are always DPAPI-protected (never a silent plaintext fallback).
             try:
-                _create_atomic(ruta, raw)
+                _create_atomic(ruta, protected_key_file(key))
             except FileExistsError:
                 # A second process created the key while this one prepared it.
-                existing = ruta.read_bytes()
-                key = _dpapi(existing[6:], False) if existing.startswith(b"DPAPI:") else existing
+                key = _unwrap(ruta.read_bytes())
         _key = key
         _fernet = Fernet(key)
         return _fernet
-
 
 
 def key_bytes() -> bytes:
