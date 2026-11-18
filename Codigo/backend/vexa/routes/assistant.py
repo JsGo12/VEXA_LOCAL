@@ -86,7 +86,7 @@ def ask(conversation_id):
     if case_filter is not None and not (isinstance(case_filter, list) and all(
             isinstance(c, int) and not isinstance(c, bool) for c in case_filter)):
         abort(400, "case_ids debe ser una lista de números.")
-    documents, cards, scope = rt.assistant.authorized_material(g.user, case_filter)
+    documents, cards, _ = rt.assistant.authorized_material(g.user, case_filter)
     if not cards:
         audit.record("assistant.query", "denied", resource_type="assistant_conversation",
                      resource_id=conversation_id, reason="sin expedientes autorizados para el asistente")
