@@ -22,7 +22,6 @@ from functools import lru_cache
 from heapq import nlargest
 from typing import Any, Dict, List, Optional
 
-import pdfplumber
 import ollama
 from rank_bm25 import BM25Okapi
 from docx import Document as DocxDocument
@@ -33,13 +32,6 @@ from vexa.rag import prompts
 # =============================================================================
 # CONFIGURACIÓN GLOBAL
 # =============================================================================
-
-APP_TITLE = "Vexa Local"
-APP_SUBTITLE = "Chat con documentos 100% offline — sin nube, sin fugas de datos"
-
-# Tamaño de los chunks de texto (en palabras) y solapamiento entre ellos.
-CHUNK_SIZE_PALABRAS = 220
-CHUNK_OVERLAP_PALABRAS = 40
 
 # Cantidad de fragmentos de contexto que se recuperan por pregunta puntual.
 TOP_K_FRAGMENTOS = 3
@@ -127,27 +119,6 @@ def _tokenizar(texto: str) -> List[str]:
     texto = "".join(c for c in texto if not unicodedata.combining(c))
     tokens = re.findall(r"[a-z0-9]+", texto)
     return tokens
-
-
-def extraer_texto_por_pagina(ruta_o_archivo) -> List[Dict[str, Any]]:
-    """Extrae el texto de un PDF, página por página.
-
-    Args:
-        ruta_o_archivo: ruta de archivo (str/Path) o un objeto tipo
-            archivo ya abierto (pdfplumber acepta ambos).
-
-    Returns:
-        Lista de dicts {"page_number": int, "text": str}, uno por página
-        que contenga texto extraíble.
-    """
-    paginas = []
-    with pdfplumber.open(ruta_o_archivo) as pdf:
-        for i, pagina in enumerate(pdf.pages, start=1):
-            texto = pagina.extract_text() or ""
-            texto = texto.strip()
-            if texto:
-                paginas.append({"page_number": i, "text": texto})
-    return paginas
 
 
 def extraer_texto_docx(
@@ -264,40 +235,6 @@ def _detectar_encabezado_registro(texto_completo: str) -> Optional[re.Pattern]:
     )
 
 
-def dividir_en_chunks(
-    doc_name: str,
-    paginas: List[Dict[str, Any]],
-    chunk_size: int = CHUNK_SIZE_PALABRAS,
-    overlap: int = CHUNK_OVERLAP_PALABRAS,
-) -> List[Chunk]:
-    """Divide el texto del documento en chunks, preservando la página (o
-    rango de páginas) como metadata para poder citarla luego.
-
-    Estrategia:
-    1. Se detecta AUTOMÁTICAMENTE (sin palabras fijas) si el documento
-       está estructurado en fichas repetidas — "Cliente 1", "Paciente 2",
-       "Ticket 003", "Empleado N", lo que sea que use cada empresa. Si es
-       así, cada ficha completa se convierte en UN SOLO chunk atómico —
-       incluso si se extiende a través de un salto de página del PDF.
-       Esto evita que el corte por palabras (o el borde de página) parta
-       una ficha a la mitad, o que se mezclen campos de dos fichas
-       distintas al momento de la búsqueda.
-    2. Si no se detecta ese patrón (documento de texto corrido normal),
-       se usa el chunking genérico por cantidad de palabras con solape,
-       sin cruzar páginas.
-    """
-    if not paginas:
-        return []
-
-    texto_completo_doc = "\n".join(p["text"] for p in paginas)
-    patron_split = _detectar_encabezado_registro(texto_completo_doc)
-
-    if patron_split is not None:
-        return _dividir_por_registros(doc_name, paginas, patron_split)
-
-    return _dividir_por_palabras(doc_name, paginas, chunk_size, overlap)
-
-
 def _dividir_por_registros(
     doc_name: str, paginas: List[Dict[str, Any]], patron_split: re.Pattern
 ) -> List[Chunk]:
@@ -356,47 +293,6 @@ def _dividir_por_registros(
             )
         )
         idx_chunk += 1
-
-    return chunks
-
-
-def _dividir_por_palabras(
-    doc_name: str,
-    paginas: List[Dict[str, Any]],
-    chunk_size: int,
-    overlap: int,
-) -> List[Chunk]:
-    """Chunking genérico por cantidad de palabras con solape, usado para
-    documentos de texto corrido (no fichas). No cruza páginas."""
-    chunks: List[Chunk] = []
-
-    for pagina in paginas:
-        palabras = pagina["text"].split()
-        if not palabras:
-            continue
-
-        paso = max(chunk_size - overlap, 1)
-        idx_chunk_local = 0
-
-        for inicio in range(0, len(palabras), paso):
-            fragmento_palabras = palabras[inicio: inicio + chunk_size]
-            if not fragmento_palabras:
-                continue
-
-            texto_chunk = " ".join(fragmento_palabras)
-            chunks.append(
-                Chunk(
-                    doc_name=doc_name,
-                    page_number=pagina["page_number"],
-                    chunk_index=idx_chunk_local,
-                    text=texto_chunk,
-                )
-            )
-            idx_chunk_local += 1
-
-            # Si ya cubrimos toda la página, no seguimos iterando.
-            if inicio + chunk_size >= len(palabras):
-                break
 
     return chunks
 
