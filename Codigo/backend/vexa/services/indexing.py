@@ -40,8 +40,8 @@ class CaseIndexer:
 
     def __init__(self, db_path: Path):
         self.db_path = Path(db_path)
-        self._index_cache: "OrderedDict[tuple, rag_hybrid.IndiceHibrido]" = OrderedDict()
-        self._answer_cache: "OrderedDict[tuple, tuple]" = OrderedDict()
+        self._index_cache: OrderedDict[tuple, rag_hybrid.IndiceHibrido] = OrderedDict()
+        self._answer_cache: OrderedDict[tuple, tuple] = OrderedDict()
         self._rag_cache_lock = RLock()
         self._build_locks: Dict[int, list] = {}
         self._build_locks_guard = Lock()

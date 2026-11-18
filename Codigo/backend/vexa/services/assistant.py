@@ -47,7 +47,7 @@ class FirmAssistant:
     def __init__(self, db_path: Path, indexer: CaseIndexer):
         self.db_path = Path(db_path)
         self.indexer = indexer
-        self._cache: "OrderedDict[tuple, object]" = OrderedDict()
+        self._cache: OrderedDict[tuple, object] = OrderedDict()
         self._lock = RLock()
 
     # ---------------------------------------------------------------- material

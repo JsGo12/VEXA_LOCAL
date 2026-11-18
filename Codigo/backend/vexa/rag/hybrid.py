@@ -161,7 +161,7 @@ def construir_indice_hibrido(
     progreso: Optional[ProgressCb] = None,
     modelo_emb: Optional[str] = None,
     nombres: Optional[Dict[str, str]] = None,
-    parcial: Optional[Callable[["IndiceHibrido", int, int], None]] = None,
+    parcial: Optional[Callable[[IndiceHibrido, int, int], None]] = None,
 ) -> IndiceHibrido:
     """Cada archivo se procesa una sola vez (caché en SQLite por hash del contenido descifrado).
     `nombres` mapea ruta almacenada -> nombre original para citar fuentes. `parcial` recibe un
