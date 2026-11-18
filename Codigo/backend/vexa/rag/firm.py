@@ -64,9 +64,9 @@ def retrieve(question: str, index: rag_hybrid.IndiceHibrido, cards: Sequence[Cas
 
     by_label = {d.label: d.case_id for d in documents}
     involved = list(dict.fromkeys(by_label[f.doc_name] for f in fragments if f.doc_name in by_label))
-    tokens = {t for t in rag_core._tokenizar(question) if len(t) >= 4 and t != "caso"}
+    tokens = {t for t in rag_core.tokenizar(question) if len(t) >= 4 and t != "caso"}
     for card in cards:   # expedientes nombrados en la pregunta (título o referencia)
-        if card.case_id not in involved and tokens & set(rag_core._tokenizar(card.label)):
+        if card.case_id not in involved and tokens & set(rag_core.tokenizar(card.label)):
             involved.append(card.case_id)
     card_map = {c.case_id: c for c in cards}
     budget = max(0, max_chars - sum(len(f.text) for f in fragments))

@@ -18,7 +18,7 @@ from vexa.rag import formats
 from vexa.rag import core as rag_core
 from vexa.rag import prompts
 from vexa.security import vault
-from vexa.rag.core import Chunk, IndiceDocumental, _tokenizar
+from vexa.rag.core import Chunk, IndiceDocumental, tokenizar
 
 LOGGER = logging.getLogger(__name__)
 
@@ -88,9 +88,9 @@ def chunkear(doc_name: str, paginas: List[dict]) -> Tuple[List[Chunk], bool]:
     if not paginas:
         return [], False
     todo = "\n".join(p["text"] for p in paginas)
-    patron = rag_core._detectar_encabezado_registro(todo)
+    patron = rag_core.detectar_encabezado_registro(todo)
     if patron is not None:
-        return rag_core._dividir_por_registros(doc_name, paginas, patron), True
+        return rag_core.dividir_por_registros(doc_name, paginas, patron), True
 
     chunks: List[Chunk] = []
     buf, buf_ini, buf_fin = "", None, None
@@ -195,7 +195,7 @@ def construir_indice_hibrido(
             if filas is not None:
                 chunks = [Chunk(doc_name=nombre, page_number=p, page_number_fin=pe, chunk_index=idx, text=t)
                           for idx, p, pe, t in filas]
-                es_ficha = rag_core._detectar_encabezado_registro("\n".join(c.text for c in chunks)) is not None
+                es_ficha = rag_core.detectar_encabezado_registro("\n".join(c.text for c in chunks)) is not None
             else:
                 chunks, es_ficha = chunkear(nombre, formats.extraer(ruta, datos))
                 if db_path and chunks:
@@ -258,7 +258,7 @@ def buscar_hibrido(pregunta: str, indice: IndiceHibrido, top_k: int,
     """BM25 (palabras exactas, nombres, RUT, números) + vectores (significado), fusionados con RRF."""
     if indice.esta_vacio():
         return []
-    tokens = _tokenizar(pregunta)
+    tokens = tokenizar(pregunta)
     puntajes: Dict[int, float] = {}
     peso_bm25 = 1.5 if _EXACTO_RE.search(pregunta) else 1.0
 
@@ -290,12 +290,12 @@ def buscar_todos_relevantes(pregunta: str, indice: IndiceHibrido) -> List[Chunk]
     if _RESUMEN_COMPLETO_RE.search(pregunta):
         return list(indice.chunks)
 
-    tokens = set(_tokenizar(pregunta)) - _PALABRAS_NO_INFORMATIVAS
+    tokens = set(tokenizar(pregunta)) - _PALABRAS_NO_INFORMATIVAS
     if not tokens:
         return []
     seleccionados = set()
     for i, chunk in enumerate(indice.chunks):
-        terminos = set(_tokenizar(chunk.text))
+        terminos = set(tokenizar(chunk.text))
         coincidencias = len(tokens & terminos)
         if coincidencias and coincidencias / len(tokens) >= 0.2:
             seleccionados.add(i)

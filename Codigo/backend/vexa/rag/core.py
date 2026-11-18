@@ -107,7 +107,7 @@ class IndiceDocumental:
 # MÓDULO DE PROCESAMIENTO DE DOCUMENTOS
 # =============================================================================
 
-def _tokenizar(texto: str) -> List[str]:
+def tokenizar(texto: str) -> List[str]:
     """Tokeniza texto para BM25: minúsculas, sin tildes, solo palabras.
 
     BM25 funciona por coincidencia léxica exacta, por lo que normalizar
@@ -185,7 +185,7 @@ def extraer_texto_docx(
     return paginas
 
 
-def _detectar_encabezado_registro(texto_completo: str) -> Optional[re.Pattern]:
+def detectar_encabezado_registro(texto_completo: str) -> Optional[re.Pattern]:
     """Detecta AUTOMÁTICAMENTE si el documento está estructurado en fichas
     repetidas (ej. "Cliente 1", "Paciente 2", "Ticket 003", "Empleado N",
     "Producto 45"...) sin asumir ninguna palabra fija de antemano — cada
@@ -235,7 +235,7 @@ def _detectar_encabezado_registro(texto_completo: str) -> Optional[re.Pattern]:
     )
 
 
-def _dividir_por_registros(
+def dividir_por_registros(
     doc_name: str, paginas: List[Dict[str, Any]], patron_split: re.Pattern
 ) -> List[Chunk]:
     """Chunking para documentos tipo 'ficha' (Cliente 1, Paciente 2, ...).
@@ -302,7 +302,7 @@ def construir_indice(chunks: List[Chunk]) -> IndiceDocumental:
     if not chunks:
         return IndiceDocumental(chunks=[], bm25=None)
 
-    corpus_tokenizado = [_tokenizar(c.text) for c in chunks]
+    corpus_tokenizado = [tokenizar(c.text) for c in chunks]
     bm25 = BM25Okapi(corpus_tokenizado)
     return IndiceDocumental(chunks=chunks, bm25=bm25)
 
@@ -323,7 +323,7 @@ def _es_pregunta_de_listado(pregunta: str) -> bool:
     (en vez de apuntar a un registro puntual), para poder ampliar la
     cantidad de fragmentos recuperados y no perder resultados relevantes
     frente a coincidencias léxicas ruidosas (ej. el título del documento)."""
-    tokens = set(_tokenizar(pregunta))
+    tokens = set(tokenizar(pregunta))
     return any(palabra in tokens for palabra in _PALABRAS_CLAVE_AGREGACION)
 
 
@@ -362,7 +362,7 @@ def buscar_contexto_relevante(
     if indice.esta_vacio() or indice.bm25 is None:
         return []
 
-    tokens_pregunta = _tokenizar(pregunta)
+    tokens_pregunta = tokenizar(pregunta)
     if not tokens_pregunta:
         return []
 
@@ -393,7 +393,7 @@ def buscar_contexto_relevante(
 
     coincidencias = []
     for chunk in indice.chunks:
-        terminos_chunk = set(_tokenizar(chunk.text))
+        terminos_chunk = set(tokenizar(chunk.text))
         cobertura = len(terminos_consulta & terminos_chunk)
         if cobertura:
             coincidencias.append((chunk, cobertura))
