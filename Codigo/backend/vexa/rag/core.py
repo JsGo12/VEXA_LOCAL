@@ -117,8 +117,7 @@ def tokenizar(texto: str) -> List[str]:
     texto = texto.lower()
     texto = unicodedata.normalize("NFKD", texto)
     texto = "".join(c for c in texto if not unicodedata.combining(c))
-    tokens = re.findall(r"[a-z0-9]+", texto)
-    return tokens
+    return re.findall(r"[a-z0-9]+", texto)
 
 
 def extraer_texto_docx(
@@ -376,7 +375,7 @@ def buscar_contexto_relevante(
     resultados = nlargest(
         top_k,
         ((score, position, chunk) for position, (chunk, score) in
-         enumerate(zip(indice.chunks, scores)) if score > 0),
+         enumerate(zip(indice.chunks, scores, strict=True)) if score > 0),
     )
     if resultados:
         return [chunk for _, _, chunk in resultados]
