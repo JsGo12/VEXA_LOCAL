@@ -129,5 +129,5 @@ class RemoteAddressFilter:
         if not self.allowed(environ.get("REMOTE_ADDR")):
             LOGGER.warning("Conexión rechazada desde un origen no autorizado: %s", environ.get("REMOTE_ADDR"))
             start_response("403 Forbidden", [("Content-Type", "text/plain; charset=utf-8")])
-            return ["Acceso denegado: VEXA solo acepta conexiones locales o de Tailscale.".encode("utf-8")]
+            return [b"Acceso denegado: VEXA solo acepta conexiones locales o de Tailscale."]
         return self.wsgi_app(environ, start_response)
