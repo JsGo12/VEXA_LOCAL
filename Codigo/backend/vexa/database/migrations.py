@@ -210,9 +210,6 @@ def _m4_preserve_admin_case_access(db: sqlite3.Connection) -> None:
     )
 
 
-CASE_STATUSES = ("pendiente", "en_curso", "en_revision", "cerrado")
-
-
 def _m5_case_progress_and_accounts(db: sqlite3.Connection) -> None:
     """Avance de casos (estado, porcentaje, historial de notas) y gestión de contraseñas propias.
 
