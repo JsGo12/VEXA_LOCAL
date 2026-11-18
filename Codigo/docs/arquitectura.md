@@ -57,6 +57,7 @@ database, security, config → (solo bibliotecas)
 3. Reformulación de seguimiento, caché de respuestas `(case_id, firma, usuario, pregunta, modelo)`.
 4. Pregunta de totalidad → `rag.stages.responder_por_etapas`; si no, búsqueda híbrida + vecinos + límite de contexto → `rag.hybrid.consultar_stream`.
 5. Respuesta en NDJSON (`delta`, `progress`, `done`, `error`) y persistencia cifrada en `chat_messages`.
+6. **Detener / tiempo límite.** El botón "Detener" (o Esc) y el tiempo límite de 3 minutos sin datos (`Vexa.CHAT_IDLE_MS` en `static/js/ndjson.js`) cortan la conexión con `AbortController`. El servidor cierra entonces el stream de Ollama, que deja de generar, y libera la prioridad interactiva. La respuesta incompleta no se guarda ni en el historial ni en la caché. Lo mismo vale para el asistente transversal.
 
 El índice de fondo y el resumen automático usan solo documentos **no restringidos**; el resumen se muestra únicamente a quien ve todos esos documentos.
 
