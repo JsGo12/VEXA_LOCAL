@@ -2,12 +2,10 @@
 Vexa Local — Motor RAG (núcleo, sin interfaz)
 ================================================
 
-Este módulo contiene TODA la lógica de negocio del sistema RAG: extracción
-de documentos, chunking inteligente, índice BM25, búsqueda de contexto y
-consulta al LLM local vía Ollama. No depende de ninguna librería de
-interfaz (ni Streamlit ni Tkinter), para poder reutilizarse desde
-cualquier capa visual — en este proyecto, la app de escritorio
-`desktop_app.py`.
+Piezas base del RAG que reutilizan `rag.hybrid`, `rag.stages` y `rag.firm`:
+modelo de fragmentos (Chunk), índice BM25, tokenización, detección de fichas
+repetidas, extracción de Word, armado del prompt y cliente de Ollama.
+No depende de Flask ni de ninguna interfaz.
 
 Todo el procesamiento ocurre en la máquina local. No se realiza ninguna
 llamada a servicios externos: solo se habla con el servidor local de
@@ -16,14 +14,14 @@ Ollama (http://localhost:11434).
 
 from __future__ import annotations
 
+import logging
+import os
 import re
 import unicodedata
-import logging
 from dataclasses import dataclass, field
 from functools import lru_cache
 from heapq import nlargest
-from typing import List, Dict, Any, Iterator, Optional
-import os
+from typing import Any, Dict, Iterator, List, Optional
 
 import pdfplumber
 import ollama
@@ -426,8 +424,6 @@ def procesar_documentos(rutas_archivos: List[str]) -> IndiceDocumental:
     Args:
         rutas_archivos: lista de rutas de archivo en disco (str).
     """
-    import os
-
     todos_los_chunks: List[Chunk] = []
 
     for ruta in rutas_archivos:
@@ -647,8 +643,6 @@ def consultar_llm_stream(
             getattr(ultima_respuesta, "eval_duration", 0) / 1_000_000,
             getattr(ultima_respuesta, "total_duration", 0) / 1_000_000,
         )
-
-import os
 
 
 def indice_filtrado_por_documentos(
