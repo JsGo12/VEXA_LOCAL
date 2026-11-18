@@ -1,6 +1,6 @@
 # VEXA en Docker
 
-Alternativa al servidor Windows de [despliegue.md](despliegue.md). Archivos: `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `.env.docker.example`.
+Alternativa al servidor Windows de [despliegue.md](despliegue.md). Archivos, todos en `Codigo/docker/`: `Dockerfile`, `docker-compose.yml`, `Dockerfile.dockerignore` (exclusiones de la imagen; requiere BuildKit, activo por defecto en Docker Desktop) y `.env.docker.example`. El contexto de construcción es `Codigo/`.
 
 ## Diseño (por qué así)
 
@@ -16,7 +16,7 @@ Alternativa al servidor Windows de [despliegue.md](despliegue.md). Archivos: `Do
 - Se mantiene la política de red de VEXA: `VEXA_HOST` y `OLLAMA_HOST` siguen siendo loopback y el segundo listener es solo la IP de Tailscale. **No se usa `0.0.0.0` ni se publican puertos.**
 - VEXA no tiene la CLI de Tailscale: detecta la IP en la interfaz `tailscale0` (solo interfaces llamadas `tailscale…`, para no confundirla con una IP CGNAT del proveedor).
 - La imagen de Ollama escucha en `0.0.0.0` por defecto; el compose lo fuerza a `127.0.0.1` para que no quede expuesto en Tailscale.
-- La imagen no lleva `.env`, datos, pruebas ni entornos locales (`.dockerignore`). Corre con un usuario sin privilegios.
+- La imagen no lleva `.env`, datos, pruebas ni entornos locales (`docker/Dockerfile.dockerignore`). Corre con un usuario sin privilegios.
 
 ## ⚠️ Diferencias de seguridad con el servidor Windows
 
@@ -29,7 +29,7 @@ Alternativa al servidor Windows de [despliegue.md](despliegue.md). Archivos: `Do
 Requisitos: Docker Desktop (backend WSL 2) en el PC servidor.
 
 ```powershell
-Set-Location Codigo
+Set-Location Codigo\docker                    # todos los comandos docker compose, desde aquí
 Copy-Item .env.docker.example .env.docker      # opcional: modelo, MagicDNS…
 docker compose up -d --build
 docker compose logs -f tailscale               # 1.ª vez: abre el enlace "To authenticate, visit…"

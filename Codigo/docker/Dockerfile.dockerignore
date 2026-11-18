@@ -18,3 +18,5 @@ docs
 scripts
 .git
 .vscode
+.dockerignore
+docker

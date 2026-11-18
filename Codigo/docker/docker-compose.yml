@@ -1,7 +1,8 @@
 # VEXA Local en Docker: Tailscale + Ollama + VEXA en la MISMA red (la del contenedor tailscale).
 #
+#   cd Codigo\docker                     # ejecuta los comandos desde esta carpeta
 #   docker compose up -d --build
-#   docker compose logs tailscale        # primera vez: abre el enlace de inicio de sesión
+#   docker compose logs tailscale       # primera vez: abre el enlace de inicio de sesión
 #   docker compose exec tailscale tailscale ip -4   # IP 100.x para los PCs de abogados
 #   docker compose exec ollama ollama pull llama3.2:1b
 #   docker compose exec ollama ollama pull bge-m3
@@ -60,7 +61,10 @@ services:
     #           capabilities: [gpu]
 
   vexa:
-    build: .
+    # El contexto es Codigo/ (necesita backend/ y frontend/); exclusiones en docker/Dockerfile.dockerignore.
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     network_mode: service:tailscale
     # Ajustes opcionales del contenedor (modelo, MagicDNS…). NO se usa el .env de Windows: su IP de
     # Tailscale es la del PC, no la del contenedor. Plantilla: .env.docker.example

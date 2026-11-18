@@ -72,7 +72,7 @@ Codigo/
 ├── docs/               Documentación técnica
 ├── legacy/             Interfaces antiguas (Tkinter, pywebview), solo referencia
 ├── .env.example        Plantilla de configuración
-├── Dockerfile, docker-compose.yml   Servidor en contenedores (docs/docker.md)
+├── docker/                         Servidor en contenedores: Dockerfile, docker-compose.yml (docs/docker.md)
 └── requirements.txt    Instala backend + herramientas de prueba
 ```
 

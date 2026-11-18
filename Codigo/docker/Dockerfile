@@ -3,6 +3,7 @@
 # Se usa junto con docker-compose.yml: este contenedor comparte la red del contenedor de Tailscale,
 # así que VEXA sigue escuchando solo en 127.0.0.1 y en la IP 100.x de Tailscale (nunca 0.0.0.0,
 # sin puertos publicados en el equipo). Detalle y advertencias: docs/docker.md
+# El contexto de construcción es Codigo/ (lo fija docker-compose.yml); las rutas COPY parten de ahí.
 FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

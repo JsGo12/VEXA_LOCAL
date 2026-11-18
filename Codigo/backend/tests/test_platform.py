@@ -162,7 +162,7 @@ def test_tailscale_interface_detection_requires_tailscale_interface():
 
 def test_docker_files_keep_the_network_policy():
     def code(name):  # sin comentarios: solo lo que Docker ejecuta
-        lines = (BACKEND.parent / name).read_text(encoding="utf-8").splitlines()
+        lines = (BACKEND.parent / "docker" / name).read_text(encoding="utf-8").splitlines()
         return "\n".join(line.split("#")[0] for line in lines)
 
     compose, dockerfile = code("docker-compose.yml"), code("Dockerfile")
@@ -171,7 +171,8 @@ def test_docker_files_keep_the_network_policy():
     assert "ports:" not in compose
     assert "OLLAMA_HOST: 127.0.0.1:11434" in compose
     assert compose.count("network_mode: service:tailscale") == 2
-    dockerignore = (BACKEND.parent / ".dockerignore").read_text(encoding="utf-8").split()
+    assert "context: .." in compose and "dockerfile: docker/Dockerfile" in compose
+    dockerignore = (BACKEND.parent / "docker" / "Dockerfile.dockerignore").read_text(encoding="utf-8").split()
     assert ".env" in dockerignore and ".venv" in dockerignore
 
 

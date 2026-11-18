@@ -39,3 +39,8 @@ desktop/backend/dist/
 desktop/backend/*.spec
 desktop/electron/node_modules/
 desktop/electron/release/
+
+# Notas personales y de trabajo (no se publican)
+CLAUDE.md
+COMANDOS.txt
+docs/ideas-de-mejora.txt
