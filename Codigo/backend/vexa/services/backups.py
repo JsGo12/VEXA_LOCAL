@@ -21,7 +21,7 @@ import tempfile
 import threading
 import time
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import List, Optional
 
@@ -299,7 +299,7 @@ def run_backup(settings, reason: str = "automático") -> Path:
                                  exclude_dirs=[settings.backups_dir])
         except Exception as exc:
             _write_status(settings.data_dir, last_error=str(exc)[:300],
-                          last_error_at=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+                          last_error_at=datetime.now(UTC).isoformat(timespec="seconds"))
             LOGGER.error("Respaldo %s fallido: %s", reason, exc)
             raise
         for old in list_backups(target_dir)[settings.backup_keep:]:
@@ -307,7 +307,7 @@ def run_backup(settings, reason: str = "automático") -> Path:
                 Path(old["path"]).unlink()
             except OSError:
                 LOGGER.warning("No se pudo borrar el respaldo antiguo %s", old["name"])
-        _write_status(settings.data_dir, last_ok=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        _write_status(settings.data_dir, last_ok=datetime.now(UTC).isoformat(timespec="seconds"),
                       last_path=str(path), last_reason=reason, last_error=None)
         LOGGER.info("Respaldo %s creado: %s", reason, path)
         return path

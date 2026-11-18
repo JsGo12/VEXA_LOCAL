@@ -15,7 +15,7 @@ import base64
 import json
 import os
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -53,7 +53,7 @@ def export_recovery(destination, passphrase: str, data_dir=None) -> dict:
         fh.write(blob)
         fh.flush()
         os.fsync(fh.fileno())
-    info = {"exported_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    info = {"exported_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "fingerprint": vault.key_fingerprint(key)}
     if data_dir is not None:
         (Path(data_dir) / STATUS_FILE).write_text(json.dumps(info), encoding="utf-8")

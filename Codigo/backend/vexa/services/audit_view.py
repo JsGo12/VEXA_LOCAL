@@ -7,7 +7,7 @@ alcance; si no, se muestra «caso #N», igual que antes, para no filtrar informa
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Dict, Iterable, List, Optional, Set
 
 from vexa.database import connect
@@ -72,7 +72,7 @@ def local_time(value: Optional[str]) -> str:
     try:
         moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if moment.tzinfo is None:
-            moment = moment.replace(tzinfo=timezone.utc)
+            moment = moment.replace(tzinfo=UTC)
         return moment.astimezone().strftime("%d-%m-%Y %H:%M:%S")
     except ValueError:
         return value.replace("T", " ")[:19]
