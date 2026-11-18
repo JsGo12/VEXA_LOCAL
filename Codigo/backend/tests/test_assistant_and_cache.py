@@ -236,3 +236,14 @@ def test_stopping_case_chat_closes_model_stream_and_saves_nothing(firm, fake_oll
     assert llm_priority.interactive_active() == 0  # el resumen de fondo puede seguir
     assert store.recent_messages(web.db_path, ids["case1"], ids["lawyer"], limit=10) == []
     assert not web.indexer._answer_cache          # la respuesta incompleta no queda en caché
+
+
+def test_assistant_rejects_case_ids_that_are_not_numbers(firm, fake_ollama):
+    web, ids = firm
+    client = _client_as(web, ids["chief"])
+    conv = client.post("/api/assistant/conversations", json={"title": "x"}, headers={"X-CSRF-Token": CSRF})
+    cid = conv.get_json()["id"]
+    for bad in ("1", [True], ["1"], {"a": 1}):
+        response = client.post(f"/api/assistant/conversations/{cid}/ask", json={"question": "renta", "case_ids": bad},
+                               headers={"X-CSRF-Token": CSRF})
+        assert response.status_code == 400, bad

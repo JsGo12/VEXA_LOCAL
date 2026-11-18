@@ -83,9 +83,9 @@ def ask(conversation_id):
     if not question:
         return jsonify(ok=False, error="Escribe una consulta."), 400
     case_filter = payload.get("case_ids")
-    if case_filter is not None:
-        if not isinstance(case_filter, list) or not all(isinstance(c, int) for c in case_filter):
-            abort(400, "case_ids debe ser una lista de números.")
+    if case_filter is not None and not (isinstance(case_filter, list) and all(
+            isinstance(c, int) and not isinstance(c, bool) for c in case_filter)):
+        abort(400, "case_ids debe ser una lista de números.")
     documents, cards, scope = rt.assistant.authorized_material(g.user, case_filter)
     if not cards:
         audit.record("assistant.query", "denied", resource_type="assistant_conversation",
