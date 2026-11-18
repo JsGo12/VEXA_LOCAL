@@ -14,14 +14,13 @@ Ollama (http://localhost:11434).
 
 from __future__ import annotations
 
-import logging
 import os
 import re
 import unicodedata
 from dataclasses import dataclass, field
 from functools import lru_cache
 from heapq import nlargest
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, List, Optional
 
 import pdfplumber
 import ollama
@@ -38,9 +37,6 @@ from vexa.rag import prompts
 APP_TITLE = "Vexa Local"
 APP_SUBTITLE = "Chat con documentos 100% offline — sin nube, sin fugas de datos"
 
-# Modelos livianos recomendados para correr en CPU/GPU modesta vía Ollama.
-MODELOS_DISPONIBLES = ["llama3.2", "phi3", "llama3.2:1b", "phi3:mini"]
-
 # Tamaño de los chunks de texto (en palabras) y solapamiento entre ellos.
 CHUNK_SIZE_PALABRAS = 220
 CHUNK_OVERLAP_PALABRAS = 40
@@ -56,7 +52,6 @@ TOP_K_FRAGMENTOS_AGREGACION = 8
 # validado de OLLAMA_HOST (siempre una dirección de loopback).
 OLLAMA_HOST = "http://127.0.0.1:11434"
 OLLAMA_KEEP_ALIVE = os.environ.get("VEXA_OLLAMA_KEEP_ALIVE", "5m").strip() or "5m"
-LOGGER = logging.getLogger(__name__)
 
 
 def configurar(host: Optional[str] = None, keep_alive: Optional[str] = None) -> None:
@@ -416,30 +411,6 @@ def construir_indice(chunks: List[Chunk]) -> IndiceDocumental:
     return IndiceDocumental(chunks=chunks, bm25=bm25)
 
 
-def procesar_documentos(rutas_archivos: List[str]) -> IndiceDocumental:
-    """Pipeline completo: extrae texto, genera chunks y construye el
-    índice BM25 para uno o varios documentos (PDF o Word .docx,
-    detectado automáticamente por la extensión del archivo).
-
-    Args:
-        rutas_archivos: lista de rutas de archivo en disco (str).
-    """
-    todos_los_chunks: List[Chunk] = []
-
-    for ruta in rutas_archivos:
-        nombre_doc = os.path.basename(ruta)
-
-        if ruta.lower().endswith(".docx"):
-            paginas = extraer_texto_docx(ruta)
-        else:
-            paginas = extraer_texto_por_pagina(ruta)
-
-        chunks_doc = dividir_en_chunks(doc_name=nombre_doc, paginas=paginas)
-        todos_los_chunks.extend(chunks_doc)
-
-    return construir_indice(todos_los_chunks)
-
-
 # =============================================================================
 # MÓDULO DE BÚSQUEDA (RETRIEVAL)
 # =============================================================================
@@ -548,118 +519,3 @@ def construir_prompt(pregunta: str, fragmentos: List[Chunk]) -> str:
         prompts.PLANTILLA_FRAGMENTO.format(numero=i, fuente=chunk.fuente, texto=chunk.text)
         for i, chunk in enumerate(fragmentos, start=1))
     return prompts.PLANTILLA_PREGUNTA.format(contexto=contexto, pregunta=pregunta)
-
-
-def consultar_llm(
-    pregunta: str,
-    fragmentos: List[Chunk],
-    modelo: str,
-    host: Optional[str] = None,
-    opciones: Optional[Dict[str, Any]] = None,
-) -> str:
-    """Envía el prompt (con contexto) al LLM local vía Ollama y retorna
-    la respuesta generada.
-
-    Si no hay fragmentos relevantes, no se llama al LLM y se retorna
-    directamente un mensaje indicando que no hay información disponible.
-    """
-    if not fragmentos:
-        return (
-            "No encontré información relevante en los documentos cargados "
-            "para responder esta pregunta."
-        )
-
-    cliente = cliente_ollama(host)
-    prompt_usuario = construir_prompt(pregunta, fragmentos)
-
-    respuesta = cliente.chat(
-        model=modelo,
-        messages=[
-            {"role": "system", "content": PROMPT_SISTEMA},
-            {"role": "user", "content": prompt_usuario},
-        ],
-        options=opciones or {},
-        keep_alive=OLLAMA_KEEP_ALIVE,
-    )
-    LOGGER.info(
-        "Ollama model=%s load_ms=%.0f prompt_tokens=%s prompt_ms=%.0f "
-        "generated_tokens=%s generation_ms=%.0f total_ms=%.0f",
-        modelo,
-        getattr(respuesta, "load_duration", 0) / 1_000_000,
-        getattr(respuesta, "prompt_eval_count", "?"),
-        getattr(respuesta, "prompt_eval_duration", 0) / 1_000_000,
-        getattr(respuesta, "eval_count", "?"),
-        getattr(respuesta, "eval_duration", 0) / 1_000_000,
-        getattr(respuesta, "total_duration", 0) / 1_000_000,
-    )
-    return respuesta["message"]["content"]
-
-
-def consultar_llm_stream(
-    pregunta: str,
-    fragmentos: List[Chunk],
-    modelo: str,
-    host: Optional[str] = None,
-    opciones: Optional[Dict[str, Any]] = None,
-) -> Iterator[str]:
-    """Entrega los fragmentos de texto conforme Ollama los va generando."""
-    if not fragmentos:
-        yield "No encontré información relevante en los documentos cargados para responder esta pregunta."
-        return
-
-    cliente = cliente_ollama(host)
-    prompt_usuario = construir_prompt(pregunta, fragmentos)
-    respuesta_stream = cliente.chat(
-        model=modelo,
-        messages=[
-            {"role": "system", "content": PROMPT_SISTEMA},
-            {"role": "user", "content": prompt_usuario},
-        ],
-        options=opciones or {},
-        keep_alive=OLLAMA_KEEP_ALIVE,
-        stream=True,
-    )
-    ultima_respuesta = None
-    try:
-        for parte in respuesta_stream:
-            ultima_respuesta = parte
-            texto = parte["message"]["content"]
-            if texto:
-                yield texto
-    finally:
-        cerrar = getattr(respuesta_stream, "close", None)
-        if callable(cerrar):
-            cerrar()
-
-    if ultima_respuesta is not None:
-        LOGGER.info(
-            "Ollama stream model=%s load_ms=%.0f prompt_tokens=%s prompt_ms=%.0f "
-            "generated_tokens=%s generation_ms=%.0f total_ms=%.0f",
-            modelo,
-            getattr(ultima_respuesta, "load_duration", 0) / 1_000_000,
-            getattr(ultima_respuesta, "prompt_eval_count", "?"),
-            getattr(ultima_respuesta, "prompt_eval_duration", 0) / 1_000_000,
-            getattr(ultima_respuesta, "eval_count", "?"),
-            getattr(ultima_respuesta, "eval_duration", 0) / 1_000_000,
-            getattr(ultima_respuesta, "total_duration", 0) / 1_000_000,
-        )
-
-
-def indice_filtrado_por_documentos(
-    indice: IndiceDocumental,
-    documentos: set[str],
-) -> IndiceDocumental:
-    """Crea un índice temporal usando solo los documentos seleccionados.
-    No modifica el índice original."""
-    if not documentos:
-        return indice
-
-    # Extraer nombres base de archivo para garantizar coincidencia de rutas
-    nombres_base = {os.path.basename(doc) for doc in documentos}
-
-    chunks = [
-        chunk for chunk in indice.chunks
-        if chunk.doc_name in nombres_base or chunk.doc_name in documentos
-    ]
-
-    return construir_indice(chunks)

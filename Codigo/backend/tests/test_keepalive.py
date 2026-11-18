@@ -26,8 +26,6 @@ def test_all_ollama_calls_use_the_shared_keep_alive_setting(monkeypatch):
     chunk = rag_core.Chunk("contrato.pdf", 1, 0, "La renta mensual es de 450.000 pesos.")
     index = rag_hybrid._armar([chunk], None, set(), rag_hybrid.EMBED_MODEL)
 
-    assert rag_core.consultar_llm("¿Cuál es la renta?", [chunk], "modelo") == "pregunta independiente"
-    assert list(rag_core.consultar_llm_stream("¿Cuál es la renta?", [chunk], "modelo")) == ["respuesta"]
     assert rag_hybrid._embed(["texto"], "embeddings").shape == (1, 2)
     assert rag_hybrid.reformular_pregunta(
         "¿y su monto?", [{"role": "user", "content": "¿Qué dice el contrato?"}], "modelo",
