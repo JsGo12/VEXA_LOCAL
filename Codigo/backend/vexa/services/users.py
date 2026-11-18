@@ -195,12 +195,6 @@ def supervision_map(db_path: Path) -> Dict[int, List[int]]:
     return result
 
 
-def assignable_users(db_path: Path):
-    with connect(db_path) as db:
-        return db.execute("SELECT id, name, username, role FROM users WHERE active = 1 AND role IN "
-                          "('lawyer', 'chief_lawyer') ORDER BY name").fetchall()
-
-
 def _valid_members(db: sqlite3.Connection, member_ids: Iterable[int]) -> List[int]:
     members = list(dict.fromkeys(int(m) for m in member_ids))
     if not members:
