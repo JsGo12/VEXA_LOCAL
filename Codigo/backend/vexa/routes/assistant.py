@@ -1,25 +1,20 @@
 """Asistente IA transversal (abogado jefe u otros usuarios con assistant.use)."""
 from __future__ import annotations
 
-import json
 import logging
 import time
 
-from flask import Blueprint, Response, abort, g, jsonify, render_template, request, stream_with_context
+from flask import Blueprint, abort, g, jsonify, render_template, request
 
 from vexa import runtime
 from vexa.permissions import can, deny, permission_required
 from vexa.rag import firm
 from vexa.rag import hybrid as rag_hybrid
-from vexa.routes.cases import chat_profile, ollama_error_message
-from vexa.services import audit, llm_priority
+from vexa.routes.streaming import chat_profile, event as _event, ndjson_response, ollama_error_message
+from vexa.services import audit
 
 bp = Blueprint("assistant", __name__)
 LOGGER = logging.getLogger(__name__)
-
-
-def _event(kind, **data):
-    return json.dumps({"type": kind, **data}, ensure_ascii=False) + "\n"
 
 
 def _own_conversation(conversation_id: int) -> None:
@@ -106,12 +101,7 @@ def ask(conversation_id):
     audit.record("assistant.query", "ok", resource_type="assistant_conversation", resource_id=conversation_id,
                  details={"expedientes": len(cards), "documentos": len(documents)})
 
-    @stream_with_context
     def generate():
-        with llm_priority.interactive():           # el resumen de fondo espera mientras se responde
-            yield from _generate()
-
-    def _generate():
         try:
             yield _event("status", text=f"Buscando en {len(cards)} expediente(s) autorizados…")
             index = rt.assistant.index_for(user["id"], documents)
@@ -143,5 +133,4 @@ def ask(conversation_id):
             LOGGER.exception("Error en el asistente transversal")
             yield _event("error", error=ollama_error_message(exc))
 
-    return Response(generate(), mimetype="application/x-ndjson",
-                    headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
+    return ndjson_response(generate())

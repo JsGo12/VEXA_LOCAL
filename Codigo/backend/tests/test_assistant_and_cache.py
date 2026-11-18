@@ -6,7 +6,7 @@ import pytest
 from helpers import CSRF, _client_as, _web_app, add_case, add_document, add_user, admin_id, grant
 from vexa.rag import hybrid as rag_hybrid
 from vexa.rag import model_select
-from vexa.routes import cases as case_routes
+from vexa.routes import streaming
 
 
 @pytest.fixture
@@ -206,7 +206,7 @@ def test_case_history_hides_answers_citing_revoked_documents(firm, fake_ollama):
 
 
 def test_ollama_error_message_does_not_leak_internal_details():
-    message = case_routes.ollama_error_message(RuntimeError("C:\\secreto\\traza"))
+    message = streaming.ollama_error_message(RuntimeError("C:\\secreto\\traza"))
     assert "secreto" not in message
 
 

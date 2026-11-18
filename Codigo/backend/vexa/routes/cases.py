@@ -2,14 +2,12 @@
 from __future__ import annotations
 
 import io
-import json
 import logging
 import time
 import zipfile
 from pathlib import Path
 
-from flask import (Blueprint, Response, flash, g, jsonify, redirect, render_template, request, send_file,
-                   stream_with_context, url_for)
+from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, send_file, url_for
 from werkzeug.utils import secure_filename
 
 from vexa import runtime
@@ -18,7 +16,6 @@ from vexa.permissions import can, login_required, policy, require_case, require_
 from vexa.rag import core as rag_core
 from vexa.rag import formats
 from vexa.rag import hybrid as rag_hybrid
-from vexa.rag import model_select
 from vexa.rag import stages as rag_stages
 from vexa.security import vault
 from vexa.services import audit
@@ -26,6 +23,7 @@ from vexa.services import cases as case_service
 from vexa.services import messages as message_service
 from vexa.services import notifications as notification_service
 from vexa.services import llm_priority
+from vexa.routes.streaming import chat_profile, event as _event, ndjson_response, ollama_error_message
 from vexa.services.audit_view import local_time
 from vexa.services.indexing import document_paths
 
@@ -33,32 +31,6 @@ bp = Blueprint("cases", __name__)
 LOGGER = logging.getLogger(__name__)
 NO_RESULTS = ("No encontré información relacionada en este expediente. Prueba con un nombre, fecha, monto "
               "o frase que aparezca en el documento.")
-
-
-def _event(kind, **data):
-    return json.dumps({"type": kind, **data}, ensure_ascii=False) + "\n"
-
-
-def ollama_error_message(exc) -> str:
-    if isinstance(exc, rag_core.ollama.ResponseError):
-        detail = str(exc).splitlines()[0][:240]
-        return f"Ollama recibió la consulta, pero el modelo devolvió un error: {detail}"
-    if "ConnectError" in type(exc).__name__ or "Connection refused" in str(exc):
-        return "VEXA no pudo conectarse a Ollama en este equipo. Abre Ollama en el computador servidor y vuelve a intentarlo."
-    return f"Falló la generación con Ollama ({type(exc).__name__}). Revisa el registro del servidor."
-
-
-def chat_profile():
-    """(perfil, None) o (None, respuesta de error) según el estado de Ollama."""
-    try:
-        installed = model_select.instalados_ollama()
-    except Exception:
-        return None, (jsonify(ok=False, error="Ollama no responde en este equipo. Abre Ollama y vuelve a intentarlo."), 503)
-    perfil = model_select.perfil_para(installed)
-    if not model_select.modelo_instalado(perfil.modelo, installed):
-        return None, (jsonify(ok=False, error=f"No está instalado el modelo de chat {perfil.modelo}. Ejecuta "
-                                              f"'ollama pull {perfil.modelo}' y vuelve a intentarlo."), 503)
-    return perfil, None
 
 
 def _my_cases():
@@ -402,12 +374,7 @@ def case_chat(case_id):
     if not (stage_chunks if staged else fragments):
         return jsonify(ok=False, error=NO_RESULTS), 422
 
-    @stream_with_context
     def generate():
-        with llm_priority.interactive():           # el resumen de fondo espera mientras se responde
-            yield from _generate()
-
-    def _generate():
         generation_started = time.perf_counter()
         parts = []
         sources = list(dict.fromkeys(f.fuente for f in (stage_chunks if staged else fragments)))
@@ -443,5 +410,4 @@ def case_chat(case_id):
             LOGGER.exception("Error al consultar caso %s", case_id)
             yield _event("error", error=ollama_error_message(exc))
 
-    return Response(generate(), mimetype="application/x-ndjson",
-                    headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
+    return ndjson_response(generate())
