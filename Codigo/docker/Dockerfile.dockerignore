@@ -13,7 +13,6 @@ case_documents
 backend/tests
 backend/evals
 desktop
-legacy
 docs
 scripts
 .git

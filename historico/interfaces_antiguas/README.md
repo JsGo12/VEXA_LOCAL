@@ -9,6 +9,8 @@ abierta por Electron (`desktop/`).**
 | `app_tkinter.py` | App de escritorio Tkinter con PIN (usaba `%USERPROFILE%\.vexa_local\config.json`). |
 | `main_pywebview.py` + `interface.html` + `static/` | Prototipo con pywebview. |
 
-Ambas reutilizan el motor RAG actual (`backend/vexa/rag/core.py`) mediante una ruta de importación,
-pero **no aplican los permisos, la auditoría ni el cifrado** de la versión actual: no las uses con
-documentos reales. Dependencias propias: `legacy/requirements.txt`.
+Antes estaban en `Codigo/legacy/`. Usaban funciones del motor RAG (`procesar_documentos`,
+`consultar_llm`…) que la aplicación actual ya no tiene, así que **ya no se pueden ejecutar** con el
+código de `Codigo/`; para verlas funcionar, usa una versión anterior del repositorio (git). Además
+**no aplicaban los permisos, la auditoría ni el cifrado** de la versión actual. Dependencias propias:
+`requirements.txt` de esta carpeta.

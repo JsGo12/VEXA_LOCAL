@@ -140,7 +140,7 @@ VEXA_LOCAL/
 │   ├── Evidencias Grupales/
 │   ├── Evidencias Individuales/
 │   └── Evidencias Proyecto (version Agil)/
-├── historico/     Versión anterior del código, solo como referencia
+├── historico/     Versión anterior e interfaces antiguas (Tkinter, pywebview), solo referencia
 ├── run.py         Atajo: ejecuta Codigo/backend/run.py
 └── README.md
 ```

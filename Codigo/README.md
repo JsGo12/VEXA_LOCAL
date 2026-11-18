@@ -70,7 +70,6 @@ Codigo/
 ├── desktop/            Electron (electron/) y empaquetado PyInstaller (backend/, build.ps1)
 ├── scripts/servidor/   Tarea de inicio, firewall de Tailscale y respaldo semanal (PowerShell)
 ├── docs/               Documentación técnica
-├── legacy/             Interfaces antiguas (Tkinter, pywebview), solo referencia
 ├── .env.example        Plantilla de configuración
 ├── docker/                         Servidor en contenedores: Dockerfile, docker-compose.yml (docs/docker.md)
 └── requirements.txt    Instala backend + herramientas de prueba
