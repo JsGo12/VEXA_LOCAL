@@ -243,7 +243,7 @@ _PALABRAS_NO_INFORMATIVAS = {
     "en", "es", "esa", "ese", "eso", "esta", "este", "esto", "la", "las", "lo",
     "los", "me", "mi", "o", "para", "por", "que", "se", "si", "sobre", "su",
     "sus", "un", "una", "uno", "unos", "unas", "y", "todos", "todas", "lista",
-    "listado", "enumerar", "enumera", "cuantos", "cuantas", "total",
+    "listado", "enumerar", "enumera", "cuantas", "total",
 }
 _RESUMEN_COMPLETO_RE = re.compile(r"\b(resumen completo|todo el (documento|expediente|contrato))\b", re.I)
 
