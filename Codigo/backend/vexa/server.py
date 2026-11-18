@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -60,18 +61,14 @@ class InstanceLock:
         os.replace(tmp, self.info)
 
     def release(self) -> None:
-        try:
+        with contextlib.suppress(OSError):
             self.info.unlink(missing_ok=True)
-        except OSError:
-            pass
         if self._fh is not None:
-            try:
-                if sys.platform == "win32":
-                    import msvcrt
+            if sys.platform == "win32":
+                import msvcrt
+                with contextlib.suppress(OSError):
                     self._fh.seek(0)
                     msvcrt.locking(self._fh.fileno(), msvcrt.LK_UNLCK, 1)
-            except OSError:
-                pass
             self._fh.close()
             self._fh = None
 
