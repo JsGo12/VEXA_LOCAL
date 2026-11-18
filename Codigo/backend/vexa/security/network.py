@@ -16,8 +16,7 @@ import subprocess
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple
 
-from vexa.config import (TAILSCALE_V4, TAILSCALE_V6, ConfigError, Settings, is_loopback_host,
-                         is_tailscale_address)
+from vexa.config import TAILSCALE_V4, TAILSCALE_V6, ConfigError, Settings, is_loopback_host, is_tailscale_address
 
 LOGGER = logging.getLogger(__name__)
 _WINDOWS_TAILSCALE = Path(r"C:\Program Files\Tailscale\tailscale.exe")

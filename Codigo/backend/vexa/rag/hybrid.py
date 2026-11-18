@@ -14,11 +14,10 @@ from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
 
-from vexa.rag import formats
 from vexa.rag import core as rag_core
-from vexa.rag import prompts
-from vexa.security import vault
+from vexa.rag import formats, prompts
 from vexa.rag.core import Chunk, IndiceDocumental, tokenizar
+from vexa.security import vault
 
 LOGGER = logging.getLogger(__name__)
 

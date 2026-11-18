@@ -1,14 +1,16 @@
 import io
-import numpy as np, pytest
-from vexa.rag import formats
-from vexa.security import vault
-from vexa.rag import model_select
-from vexa.rag import stages as rag_stages
-from vexa.rag import hybrid as rag_hybrid
-from vexa.rag import core as rag_core
+
+import numpy as np
+import pytest
+
 from vexa.database import store
-from vexa.services import watcher
+from vexa.rag import core as rag_core
+from vexa.rag import formats, model_select
+from vexa.rag import hybrid as rag_hybrid
+from vexa.rag import stages as rag_stages
 from vexa.rag.core import Chunk
+from vexa.security import vault
+from vexa.services import watcher
 
 
 # ---------------- formatos

@@ -1,13 +1,13 @@
 import hashlib
 import os
-
-from vexa.rag import formats
-from vexa.rag import hybrid as rag_hybrid
-from vexa.rag import core as rag_core
-from vexa.security import vault
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
+
 from helpers import CSRF, _client_as, _seed_case, _web_app
+from vexa.rag import core as rag_core
+from vexa.rag import formats
+from vexa.rag import hybrid as rag_hybrid
+from vexa.security import vault
 from vexa.services import cases as case_service
 
 

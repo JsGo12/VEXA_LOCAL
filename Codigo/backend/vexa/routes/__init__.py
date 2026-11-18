@@ -27,6 +27,7 @@ def register_routes(app: Flask) -> None:
     def _inject_unread_notifications():
         """Número de avisos sin leer para la campana de la barra superior."""
         from flask import g
+
         from vexa import runtime
         from vexa.services import notifications as notification_service
         user = g.get("user")

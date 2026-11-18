@@ -2,9 +2,9 @@ import io
 import sqlite3
 import zipfile
 
+import backup_vexa
 import pytest
 
-import backup_vexa
 from vexa.security import vault
 
 

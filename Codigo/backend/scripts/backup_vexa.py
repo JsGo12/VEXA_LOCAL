@@ -18,8 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # Codigo/backend
 
 from vexa.config import load_settings  # noqa: E402
 from vexa.security import recovery, vault  # noqa: E402
-from vexa.services.backups import (MAGIC, MAGIC_V1, BackupError, _extract_validated,  # noqa: E402,F401
-                                   create_backup, restore_backup)
+from vexa.services.backups import MAGIC, MAGIC_V1, BackupError, _extract_validated, create_backup, restore_backup  # noqa: E402,F401
 
 
 def main(argv=None) -> int:

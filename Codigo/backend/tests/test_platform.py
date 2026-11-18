@@ -13,7 +13,7 @@ from cryptography.fernet import Fernet
 import vexa
 from helpers import CSRF, PASSWORD, _client_as, _seed_case, _web_app, add_user, admin_id, make_settings
 from vexa import server
-from vexa.config import ConfigError, PROJECT_DIR, load_settings, read_env_file
+from vexa.config import PROJECT_DIR, ConfigError, load_settings, read_env_file
 from vexa.database import migrations
 from vexa.security import network, vault
 

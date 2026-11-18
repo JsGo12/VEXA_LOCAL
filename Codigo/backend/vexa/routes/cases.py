@@ -17,13 +17,13 @@ from vexa.rag import core as rag_core
 from vexa.rag import formats
 from vexa.rag import hybrid as rag_hybrid
 from vexa.rag import stages as rag_stages
+from vexa.routes.streaming import chat_profile, ndjson_response, ollama_error_message
+from vexa.routes.streaming import event as _event
 from vexa.security import vault
-from vexa.services import audit
+from vexa.services import audit, llm_priority
 from vexa.services import cases as case_service
 from vexa.services import messages as message_service
 from vexa.services import notifications as notification_service
-from vexa.services import llm_priority
-from vexa.routes.streaming import chat_profile, event as _event, ndjson_response, ollama_error_message
 from vexa.services.audit_view import local_time
 from vexa.services.indexing import document_paths
 

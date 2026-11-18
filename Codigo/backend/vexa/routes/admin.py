@@ -13,11 +13,11 @@ from vexa.permissions.catalog import ROLES_ASSIGNABLE_BY
 from vexa.routes.cases import upload_reply
 from vexa.security import recovery
 from vexa.services import audit, backups, exports
-from vexa.services.audit_view import local_time
 from vexa.services import cases as case_service
 from vexa.services import messages as message_service
 from vexa.services import notifications as notification_service
 from vexa.services import users as user_service
+from vexa.services.audit_view import local_time
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 

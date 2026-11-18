@@ -1,10 +1,11 @@
 import numpy as np
 import pytest
+from docx import Document
+
+from vexa.database import store
 from vexa.rag import core as rag_core
 from vexa.rag import hybrid as rag_hybrid
 from vexa.rag import stages as rag_stages
-from vexa.database import store
-from docx import Document
 
 CONTRATO = """CLÁUSULA PRIMERA: El arrendador entrega en arriendo el inmueble ubicado en Santiago. La renta mensual será de 450.000 pesos.
 

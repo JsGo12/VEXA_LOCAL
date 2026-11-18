@@ -10,7 +10,8 @@ from vexa import runtime
 from vexa.permissions import can, deny, permission_required
 from vexa.rag import firm
 from vexa.rag import hybrid as rag_hybrid
-from vexa.routes.streaming import chat_profile, event as _event, ndjson_response, ollama_error_message
+from vexa.routes.streaming import chat_profile, ndjson_response, ollama_error_message
+from vexa.routes.streaming import event as _event
 from vexa.services import audit
 
 bp = Blueprint("assistant", __name__)

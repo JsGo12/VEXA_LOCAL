@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+
 from vexa.database import connect
 from vexa.security import vault
 from vexa.services import backups

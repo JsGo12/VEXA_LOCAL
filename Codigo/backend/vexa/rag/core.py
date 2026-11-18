@@ -23,11 +23,10 @@ from heapq import nlargest
 from typing import Any, Dict, List, Optional
 
 import ollama
-from rank_bm25 import BM25Okapi
 from docx import Document as DocxDocument
+from rank_bm25 import BM25Okapi
 
 from vexa.rag import prompts
-
 
 # =============================================================================
 # CONFIGURACIÓN GLOBAL
