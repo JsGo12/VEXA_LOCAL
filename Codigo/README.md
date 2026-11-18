@@ -55,6 +55,8 @@ En el primer inicio VEXA crea el usuario `admin` y escribe su contraseña aleato
 
 La prueba de OCR se omite si Tesseract no está instalado.
 
+Linter (reglas en `ruff.toml`): `.\.venv\Scripts\python.exe -m ruff check backend`
+
 ## Estructura
 
 ```text

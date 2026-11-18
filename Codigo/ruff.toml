@@ -1,0 +1,15 @@
+# Linter del backend (ruff). Desde la carpeta Codigo:
+#   .\.venv\Scripts\python.exe -m ruff check backend
+# Solo reglas que detectan errores reales o código muerto; el estilo de líneas no se revisa.
+target-version = "py312"
+extend-exclude = ["desktop/electron/node_modules"]
+
+[lint]
+select = [
+    "F",      # pyflakes: imports y variables sin uso, nombres indefinidos
+    "E9",     # errores de sintaxis
+    "B",      # bugbear: errores frecuentes (excepciones demasiado amplias, zip sin strict...)
+    "C4",     # comprensiones innecesarias
+    "PIE",    # código redundante
+    "UP012", "UP017", "UP037",  # modernizaciones ya aplicadas en el código
+]

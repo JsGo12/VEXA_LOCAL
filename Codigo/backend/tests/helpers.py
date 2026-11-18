@@ -48,7 +48,7 @@ class Web:
 
 def make_settings(tmp_path: Path, **overrides) -> Settings:
     data = tmp_path / "data"
-    values = dict(data_dir=data, db_path=data / "vexa_web.db", watch_dir=data / "carpeta_vigilada")
+    values = {"data_dir": data, "db_path": data / "vexa_web.db", "watch_dir": data / "carpeta_vigilada"}
     values.update(overrides)
     return Settings(**values)
 

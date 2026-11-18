@@ -82,6 +82,13 @@ Solo loopback, sin recarga automática, prohibido con `VEXA_ENV=production`.
 
 Las pruebas crean su propia carpeta temporal y nunca leen el `.env` real ni `%USERPROFILE%\.vexa_local`.
 
+Antes de subir cambios, revisa también el linter (las reglas están en `ruff.toml`; `ruff` se instala con
+`backendequirements-dev.txt`):
+
+```powershell
+.\.venv\Scripts\python.exe -m ruff check backend
+```
+
 ## 7. Instalador de Windows
 
 ```powershell
