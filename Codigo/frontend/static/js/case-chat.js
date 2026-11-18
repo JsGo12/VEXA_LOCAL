@@ -24,19 +24,35 @@
     return block;
   };
 
+  const button = form.querySelector('button');
+  let query = null;                                   // consulta en curso (se puede detener)
+
+  const addNote = (block, text) => {
+    const note = document.createElement('div');
+    note.className = 'chat-note';
+    note.textContent = text;
+    block.appendChild(note);
+    messages.scrollTop = messages.scrollHeight;
+  };
+
   form.addEventListener('submit', async event => {
     event.preventDefault();
+    if (query) { query.stop(); return; }              // el botón dice "Detener" mientras responde
     const question = input.value.trim();
     if (!question) return;
     addMessage(question, 'user-message');
     input.value = '';
     input.disabled = true;
+    query = Vexa.stoppable();
+    Vexa.setBusyButton(button, true);
     const wait = addMessage('Buscando antecedentes y consultando el modelo local...', 'assistant-message');
+    let block = null, answer = '';
     try {
-      const response = await Vexa.postJSON(urls.chatUrl, { question });
+      const response = await Vexa.postJSON(urls.chatUrl, { question }, query.signal);
+      query.touch();
       if (!response.ok) throw await Vexa.errorFrom(response);
       if (response.headers.get('content-type')?.includes('application/x-ndjson')) {
-        let block = null, paragraph = null, answer = '';
+        let paragraph = null;
         await Vexa.readNdjson(response, item => {
           if (item.type === 'delta') {
             if (!block) {
@@ -58,7 +74,7 @@
           } else if (item.type === 'progress' && !block) {
             wait.querySelector('p').textContent = `Revisando el expediente completo… bloque ${Math.min(item.done + 1, item.total)} de ${item.total}`;
           }
-        });
+        }, query.touch);
       } else {
         const result = await response.json();
         if (!result.ok) throw new Error(result.error || 'No se pudo completar la consulta.');
@@ -67,11 +83,24 @@
       }
     } catch (error) {
       wait.remove();
-      addMessage(error.message, 'assistant-message');
+      if (query.reason) {
+        const partial = Boolean(block && answer.trim());
+        addNote(partial ? block : addMessage('', 'assistant-message stopped'), Vexa.stoppedText(query, partial));
+      } else {
+        addMessage(error.message, 'assistant-message');
+      }
     } finally {
+      query.finish();
+      query = null;
+      Vexa.setBusyButton(button, false);
       input.disabled = false;
       input.focus();
     }
+  });
+
+  // Esc detiene la respuesta (salvo que haya una ventana abierta: ahí Esc la cierra).
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && query && !document.querySelector('dialog[open]')) query.stop();
   });
 
   document.querySelectorAll('.suggestion-list button').forEach(button => button.addEventListener('click', () => {

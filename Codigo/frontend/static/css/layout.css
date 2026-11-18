@@ -264,3 +264,10 @@ html[data-theme="light"] .panel-tabs button.is-active { color: #fff; }
 html[data-theme="light"] .inbox-item { background: #fff; }
 html[data-theme="light"] .inbox-item.has-unread { background: #f3f4ff; border-color: #b9bcf8; }
 .nav-badge { display: inline-block; min-width: 16px; margin-left: 4px; padding: 0 5px; border-radius: 99px; font-size: 9px; font-weight: 800; line-height: 16px; color: #fff; background: #e5484d; text-align: center; }
+
+/* Chat: botón "Detener" mientras el modelo responde y aviso de respuesta cortada */
+.button-stop { color: #fff; background: #c2414b; }
+.chat-note { margin-top: 8px; padding-top: 7px; border-top: 1px dashed #ffffff26; color: var(--muted); font-size: 10px; font-style: italic; }
+.chat-message.stopped p:empty { display: none; }
+.chat-message.stopped .chat-note { margin-top: 0; padding-top: 0; border-top: 0; }
+html[data-theme="light"] .chat-note { border-top-color: #1a234026; }
