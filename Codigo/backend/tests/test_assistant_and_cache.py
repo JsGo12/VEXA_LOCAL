@@ -208,3 +208,31 @@ def test_case_history_hides_answers_citing_revoked_documents(firm, fake_ollama):
 def test_ollama_error_message_does_not_leak_internal_details():
     message = case_routes.ollama_error_message(RuntimeError("C:\\secreto\\traza"))
     assert "secreto" not in message
+
+
+def test_stopping_case_chat_closes_model_stream_and_saves_nothing(firm, fake_ollama, monkeypatch):
+    """Botón "Detener" / tiempo límite: el navegador corta la conexión y el servidor deja de generar."""
+    from vexa.database import store
+    from vexa.services import llm_priority
+    web, ids = firm
+    closed = []
+
+    def slow_stream(question, fragments, history, modelo, host=None, opciones=None, sistema=None):
+        try:
+            yield "primera parte "
+            yield "segunda parte"
+        finally:
+            closed.append(True)                    # aquí se cerraría la conexión con Ollama
+
+    monkeypatch.setattr(rag_hybrid, "consultar_stream", slow_stream)
+    response = _client_as(web, ids["lawyer"]).post(f"/api/case/{ids['case1']}/chat", json={"question": "renta"},
+                                                   headers={"X-CSRF-Token": CSRF}, buffered=False)
+    chunks = response.iter_encoded()
+    first = json.loads(next(chunks))
+    assert first == {"type": "delta", "text": "primera parte "}
+    assert llm_priority.interactive_active() == 1
+    response.close()                               # = el cliente se desconecta a mitad de la respuesta
+    assert closed == [True]
+    assert llm_priority.interactive_active() == 0  # el resumen de fondo puede seguir
+    assert store.recent_messages(web.db_path, ids["case1"], ids["lawyer"], limit=10) == []
+    assert not web.indexer._answer_cache          # la respuesta incompleta no queda en caché
