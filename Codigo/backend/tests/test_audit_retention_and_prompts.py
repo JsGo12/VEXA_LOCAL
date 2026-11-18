@@ -4,7 +4,7 @@ import re
 import pytest
 
 from helpers import _client_as, _web_app, admin_id
-from vexa.config import load_settings
+from vexa.config import ConfigError, load_settings
 from vexa.rag import core as rag_core
 from vexa.rag import firm as rag_firm
 from vexa.rag import hybrid as rag_hybrid
@@ -67,7 +67,7 @@ def test_retention_setting_is_validated():
     assert load_settings({}, use_env_file=False).audit_retention_days == 14
     assert load_settings({"VEXA_AUDIT_RETENTION_DAYS": "7"}, use_env_file=False).audit_retention_days == 7
     assert load_settings({"VEXA_AUDIT_RETENTION_DAYS": "0"}, use_env_file=False).audit_retention_days == 0
-    with pytest.raises(Exception):
+    with pytest.raises(ConfigError):
         load_settings({"VEXA_AUDIT_RETENTION_DAYS": "-3"}, use_env_file=False)
 
 
