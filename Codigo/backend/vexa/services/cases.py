@@ -300,7 +300,7 @@ def follow_up(db_path: Path, soon_days: int = 7, case_ids: Optional[Iterable[int
     if case_ids is not None:
         keep = set(case_ids)
         rows = [r for r in rows if r["id"] in keep]
-    cases, counts = [], {k: 0 for k in STATUS_LABELS}
+    cases, counts = [], dict.fromkeys(STATUS_LABELS, 0)
     for r in rows:
         item = dict(r)
         counts[item["status"]] = counts.get(item["status"], 0) + 1
