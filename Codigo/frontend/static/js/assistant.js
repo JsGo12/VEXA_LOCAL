@@ -71,6 +71,7 @@
   };
 
   const openConversation = async (id, label) => {
+    if (query) query.stop();                          // no mezclar la respuesta en curso con otra conversación
     current = id;
     title.textContent = label || 'Conversación';
     deleteButton.hidden = false;
@@ -110,6 +111,7 @@
   };
 
   document.getElementById('newConversation').addEventListener('click', () => {
+    if (query) query.stop();
     current = null;
     title.textContent = 'Nueva consulta';
     deleteButton.hidden = true;
@@ -124,17 +126,32 @@
     document.getElementById('newConversation').click();
   });
 
+  const button = form.querySelector('button');
+  let query = null;                                   // consulta en curso (se puede detener)
+
+  const addNote = (block, text) => {
+    const note = document.createElement('div');
+    note.className = 'chat-note';
+    note.textContent = text;
+    block.appendChild(note);
+    messages.scrollTop = messages.scrollHeight;
+  };
+
   form.addEventListener('submit', async event => {
     event.preventDefault();
+    if (query) { query.stop(); return; }              // el botón dice "Detener" mientras responde
     const question = input.value.trim();
     if (!question) return;
     input.value = '';
     input.disabled = true;
+    query = Vexa.stoppable();
+    Vexa.setBusyButton(button, true);
     addMessage(question, 'user-message');
     const wait = addMessage('Buscando en los expedientes autorizados…', 'assistant-message');
+    let block = null, answer = '';
     try {
       if (!current) {
-        const created = await Vexa.postJSON(urls.createUrl, { title: question });
+        const created = await Vexa.postJSON(urls.createUrl, { title: question }, query.signal);
         if (!created.ok) throw await Vexa.errorFrom(created);
         current = (await created.json()).id;
         title.textContent = question.slice(0, 80);
@@ -143,9 +160,9 @@
       const body = { question };
       const cases = selectedCases();
       if (cases) body.case_ids = cases;
-      const response = await Vexa.postJSON(convUrl(current, 'ask'), body);
+      const response = await Vexa.postJSON(convUrl(current, 'ask'), body, query.signal);
+      query.touch();
       if (!response.ok) throw await Vexa.errorFrom(response);
-      let block = null, answer = '';
       await Vexa.readNdjson(response, item => {
         if (item.type === 'status' && !block) wait.querySelector('p').textContent = item.text;
         if (item.type === 'delta') {
@@ -158,15 +175,29 @@
           if (!block) { wait.remove(); block = addMessage('', 'assistant-message'); }
           renderSources(block, item.sources);
         }
-      });
+      }, query.touch);
       loadConversations();
     } catch (error) {
       wait.remove();
-      addMessage(error.message, 'assistant-message');
+      if (query.reason) {
+        const partial = Boolean(block && answer.trim());
+        addNote(partial ? block : addMessage('', 'assistant-message stopped'), Vexa.stoppedText(query, partial));
+        loadConversations();                          // la conversación pudo crearse antes de detener
+      } else {
+        addMessage(error.message, 'assistant-message');
+      }
     } finally {
+      query.finish();
+      query = null;
+      Vexa.setBusyButton(button, false);
       input.disabled = false;
       input.focus();
     }
+  });
+
+  // Esc detiene la respuesta.
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && query && !document.querySelector('dialog[open]')) query.stop();
   });
 
   (async () => {
