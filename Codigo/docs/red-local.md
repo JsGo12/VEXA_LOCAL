@@ -3,7 +3,7 @@
 ## Alcance
 
 - **Modo local (predeterminado):** el backend escucha únicamente en `127.0.0.1`. `VEXA_HOST` solo admite loopback; un valor como `0.0.0.0` o una IP de la red local detiene el arranque con un error de configuración. Electron usa un puerto local aleatorio.
-- **Modo Tailscale (opcional):** con `TAILSCALE_ENABLED=true`, el servidor Waitress independiente (`backend\run.py`) escucha además en la IP 100.x de Tailscale del equipo. No se usa `0.0.0.0`, Funnel ni port forwarding. Ver [docs/tailscale.md](docs/tailscale.md).
+- **Modo Tailscale (opcional):** con `TAILSCALE_ENABLED=true`, el servidor Waitress independiente (`backend\run.py`) escucha además en la IP 100.x de Tailscale del equipo. No se usa `0.0.0.0`, Funnel ni port forwarding. Ver [docs/tailscale.md](tailscale.md).
 - En ambos modos, cada petición cuyo origen no sea loopback (o Tailscale, si está activo) recibe 403.
 - Ollama se consulta en `127.0.0.1:11434`; VEXA rechaza un `OLLAMA_HOST` externo.
 

@@ -92,5 +92,5 @@ Los **datos** no viven en el repositorio: por defecto están en `%USERPROFILE%\.
 | Respaldos y restauración | [docs/respaldos.md](docs/respaldos.md) |
 | Seguridad | [docs/seguridad.md](docs/seguridad.md) |
 | Frontend | [frontend/README.md](frontend/README.md) |
-| Alcance de red y verificación de tráfico | [README_RED_LOCAL.md](README_RED_LOCAL.md) |
+| Alcance de red y verificación de tráfico | [docs/red-local.md](docs/red-local.md) |
 | Evaluación del RAG | [backend/evals/README.md](backend/evals/README.md) |
