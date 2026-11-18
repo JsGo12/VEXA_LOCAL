@@ -108,18 +108,6 @@
     form.requestSubmit();
   }));
 
-  const checkOllama = async () => {
-    const status = document.getElementById('ollamaStatus');
-    try {
-      const result = await (await fetch(urls.ollamaUrl)).json();
-      status.className = `ollama-status ${result.ready ? 'ready' : (result.connected ? 'missing-model' : 'offline')}`;
-      status.querySelector('span').textContent = result.message;
-    } catch (_) {
-      status.className = 'ollama-status offline';
-      status.querySelector('span').textContent = 'No se pudo verificar Ollama';
-    }
-  };
-
   const loadHistory = async () => {
     try {
       const data = await (await fetch(urls.historyUrl)).json();
@@ -158,5 +146,5 @@
     if (n < 40) setTimeout(() => pollSummary(n + 1), 5000);
   };
 
-  loadHistory(); pollPrep(); pollSummary(); checkOllama();
+  loadHistory(); pollPrep(); pollSummary(); Vexa.checkOllama(urls.ollamaUrl);
 })();

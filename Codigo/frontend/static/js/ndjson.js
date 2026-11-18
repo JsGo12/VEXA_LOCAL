@@ -1,4 +1,4 @@
-// Utilidades compartidas: lectura de respuestas NDJSON en streaming y peticiones con CSRF.
+// Utilidades compartidas del chat y el asistente: NDJSON en streaming, CSRF, consultas que se pueden detener y estado de Ollama.
 window.Vexa = window.Vexa || {};
 
 Vexa.csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -83,4 +83,18 @@ Vexa.setBusyButton = (button, busy) => {
   button.classList.toggle('button-primary', !busy);
   button.classList.toggle('button-stop', busy);
   button.title = busy ? 'Detener la respuesta (Esc)' : '';
+};
+
+// Muestra el estado de Ollama (listo / falta el modelo / sin conexión) en el indicador #ollamaStatus.
+Vexa.checkOllama = async url => {
+  const status = document.getElementById('ollamaStatus');
+  if (!status) return;
+  try {
+    const result = await (await fetch(url)).json();
+    status.className = `ollama-status ${result.ready ? 'ready' : (result.connected ? 'missing-model' : 'offline')}`;
+    status.querySelector('span').textContent = result.message;
+  } catch (_) {
+    status.className = 'ollama-status offline';
+    status.querySelector('span').textContent = 'No se pudo verificar Ollama';
+  }
 };

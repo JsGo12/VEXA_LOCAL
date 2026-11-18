@@ -200,17 +200,7 @@
     if (event.key === 'Escape' && query && !document.querySelector('dialog[open]')) query.stop();
   });
 
-  (async () => {
-    const status = document.getElementById('ollamaStatus');
-    try {
-      const result = await (await fetch(urls.ollamaUrl)).json();
-      status.className = `ollama-status ${result.ready ? 'ready' : (result.connected ? 'missing-model' : 'offline')}`;
-      status.querySelector('span').textContent = result.message;
-    } catch (_) {
-      status.className = 'ollama-status offline';
-      status.querySelector('span').textContent = 'No se pudo verificar Ollama';
-    }
-  })();
+  Vexa.checkOllama(urls.ollamaUrl);
   loadConversations();
   loadScope();
 })();
