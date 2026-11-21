@@ -72,7 +72,8 @@ services:
       - path: .env.docker
         required: false
     environment:
-      VEXA_DATA_DIR: /data
+      VEXA_DATA_DIR: /data/vexa
+      VEXA_BACKUP_DIR: /respaldos
       VEXA_HOST: 127.0.0.1
       VEXA_PORT: "5000"
       VEXA_THREADS: "8"
@@ -81,6 +82,7 @@ services:
       TAILSCALE_ENABLED: "true"
     volumes:
       - vexa_datos:/data
+      - vexa_respaldos:/respaldos   # respaldos automáticos cifrados (Administración > Respaldos)
     depends_on:
       tailscale:
         condition: service_healthy
@@ -92,3 +94,4 @@ volumes:
   tailscale_estado:
   ollama_modelos:
   vexa_datos:
+  vexa_respaldos:

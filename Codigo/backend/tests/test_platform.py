@@ -176,6 +176,39 @@ def test_docker_files_keep_the_network_policy():
     assert ".env" in dockerignore and ".venv" in dockerignore
 
 
+def _container_environment():
+    """Variables que ve VEXA dentro del contenedor: ENV del Dockerfile + environment del compose."""
+    docker = BACKEND.parent / "docker"
+    env = {}
+    dockerfile = docker.joinpath("Dockerfile").read_text(encoding="utf-8").replace("\\\n", " ")
+    for line in dockerfile.splitlines():
+        if line.startswith("ENV "):
+            env.update(item.split("=", 1) for item in line[4:].split())
+    compose = docker.joinpath("docker-compose.yml").read_text(encoding="utf-8").splitlines()
+    block = compose[compose.index("  vexa:"):]
+    start = block.index("    environment:") + 1
+    for line in block[start:]:
+        if not line.startswith("      "):
+            break
+        key, value = line.split("#")[0].strip().split(":", 1)
+        env[key] = value.strip().strip('"')
+    return env
+
+
+def test_container_configuration_is_valid_and_keeps_backups_outside_data():
+    env = _container_environment()
+    # Datos en una subcarpeta del volumen: restaurar con --replace la renombra (el punto de montaje no se puede).
+    assert env["VEXA_DATA_DIR"] == "/data/vexa" and env["VEXA_BACKUP_DIR"] == "/respaldos"
+    settings = load_settings({**env, "TAILSCALE_BIND_ADDRESS": "100.90.1.2"}, use_env_file=False)
+    assert settings.is_production and settings.tailscale_enabled
+    assert settings.host == "127.0.0.1" and settings.ollama_host == "http://127.0.0.1:11434"
+    # Los respaldos van a su propio volumen: dentro de /home/vexa se perderían al recrear el contenedor.
+    assert settings.backup_dir.as_posix().endswith("/respaldos")
+    compose = (BACKEND.parent / "docker" / "docker-compose.yml").read_text(encoding="utf-8")
+    assert "vexa_respaldos:/respaldos" in compose and "vexa_datos:/data" in compose
+    assert 'VOLUME ["/data", "/respaldos"]' in (BACKEND.parent / "docker" / "Dockerfile").read_text(encoding="utf-8")
+
+
 def test_remote_address_filter():
     calls = []
     app = network.RemoteAddressFilter(lambda env, start: calls.append(env) or [b"ok"], allow_tailscale=False)
