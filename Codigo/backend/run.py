@@ -9,6 +9,7 @@ Electron ejecuta este mismo archivo con VEXA_HOST/VEXA_PORT definidos en el ento
 from __future__ import annotations
 
 import argparse
+import signal
 import sys
 from pathlib import Path
 
@@ -37,6 +38,10 @@ def main(argv=None) -> int:
         print("Escucharía en:", ", ".join(f"http://{h}:{p}" for h, p in listeners))
         print("Ollama:", settings.ollama_host)
         return 0
+    if sys.platform != "win32":
+        # En Docker VEXA es el proceso 1, y Linux ignora SIGTERM en el proceso 1 si no hay manejador:
+        # `docker compose stop` esperaría 10 s y lo mataría sin liberar el bloqueo ni server.json.
+        signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     return serve(dev=args.dev)
 
 
