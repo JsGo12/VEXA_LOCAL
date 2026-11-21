@@ -36,9 +36,11 @@ docker compose logs -f tailscale               # 1.ª vez: abre el enlace "To au
 docker compose exec tailscale tailscale ip -4  # IP 100.x para los clientes
 docker compose exec ollama ollama pull llama3.2:1b
 docker compose exec ollama ollama pull bge-m3
-docker compose exec vexa cat /data/credenciales_admin_inicial.txt   # contraseña inicial del admin
-docker compose exec vexa rm /data/credenciales_admin_inicial.txt    # bórrala después de anotarla
+docker compose exec vexa cat /data/vexa/credenciales_admin_inicial.txt   # contraseña inicial del admin
+docker compose exec vexa rm /data/vexa/credenciales_admin_inicial.txt    # bórrala después de anotarla
 ```
+
+VEXA espera a que Tailscale tenga IP (hasta unos 10 minutos). Si iniciar sesión en Tailscale tomó más que eso, `docker compose up -d` falla con "dependency failed to start": vuelve a ejecutarlo.
 
 Abre `http://<IP 100.x>:5000` desde un dispositivo de tu tailnet (el PC anfitrión también, si está en Tailscale). En los PCs de abogados: `configurar-cliente.ps1 -Url http://<IP 100.x>:5000`.
 
@@ -51,20 +53,45 @@ Abre `http://<IP 100.x>:5000` desde un dispositivo de tu tailnet (el PC anfitri�
 | Estado | `docker compose ps` (VEXA y Tailscale tienen healthcheck) |
 | Logs | `docker compose logs -f vexa` |
 | Actualizar código | `docker compose up -d --build vexa` (las migraciones respaldan la base antes) |
-| Detener | `docker compose down` (los volúmenes se conservan; **nunca** uses `down -v`) |
+| Detener | `docker compose down` (los volúmenes se conservan; **nunca** uses `down -v`). VEXA se cierra limpio con la señal de Docker. |
+
+## Volúmenes
+
+| Volumen | Ruta en el contenedor | Contenido |
+|---|---|---|
+| `vexa_datos` | `/data` (VEXA usa `/data/vexa`) | Base, documentos cifrados, `vault.key`, `web_secret.key` |
+| `vexa_respaldos` | `/respaldos` | Respaldos automáticos cifrados (`vexa-*.vexabackup`) |
+| `ollama_modelos` | `/root/.ollama` | Modelos de Ollama |
+| `tailscale_estado` | `/var/lib/tailscale` | Identidad del nodo Tailscale |
 
 ## Respaldos
 
-`backup_vexa.py` es para Windows (DPAPI). En Docker, respalda el volumen con VEXA detenido:
+El servidor crea un respaldo cifrado cada 24 h en el volumen `vexa_respaldos` y conserva los últimos 7 (se ve y se puede forzar en **Administración > Respaldos**; cambia la frecuencia con `VEXA_BACKUP_HOURS`/`VEXA_BACKUP_KEEP` en `.env.docker`). Ese volumen está en el mismo equipo: **copia los respaldos fuera** con regularidad, a un disco externo y nunca a OneDrive/Drive:
+
+```powershell
+docker compose cp vexa:/respaldos E:\RespaldosVEXA
+```
+
+**Clave de recuperación (hazlo una vez).** En Linux los respaldos solo se pueden abrir con la clave del vault; si se pierde el volumen `vexa_datos`, sin esta clave no se recupera nada:
+
+```powershell
+docker compose exec vexa python backend/scripts/clave_recuperacion.py /respaldos/vexa-clave.vexakey
+docker compose cp vexa:/respaldos/vexa-clave.vexakey E:\
+docker compose exec vexa rm /respaldos/vexa-clave.vexakey    # no la dejes junto a los respaldos
+```
+
+Guarda la contraseña en un lugar distinto del archivo.
+
+**Restaurar** (con VEXA detenido; los datos actuales quedan al lado como `/data/vexa.before-restore-…`):
 
 ```powershell
 docker compose stop vexa
-docker run --rm -v vexa_vexa_datos:/data -v ${PWD}\respaldos:/respaldo alpine tar czf /respaldo/vexa-datos.tgz -C /data .
+docker compose run --rm --no-deps vexa python backend/scripts/backup_vexa.py restore /respaldos/vexa-AAAAMMDD-HHMMSS.vexabackup --replace
 docker compose start vexa
 ```
 
-El archivo contiene la base, los documentos **y la clave**: guárdalo en un disco externo cifrado, nunca en OneDrive/Drive. Restaurar: `tar xzf` sobre un volumen vacío con VEXA detenido.
+En otro equipo (volumen `vexa_datos` nuevo), copia primero el respaldo y la clave al contenedor con `docker compose cp E:\… vexa:/respaldos/` y agrega `--clave-recuperacion /respaldos/vexa-clave.vexakey` al comando de restaurar.
 
 ## Limitaciones verificadas
 
-El backend se probó en Windows; la imagen no se construyó en este equipo (Docker no estaba instalado). Prueba `docker compose up --build` y revisa `docker compose logs vexa` la primera vez.
+Sin Docker en el equipo de desarrollo, la imagen todavía no se ha construido. Lo verificado sin Docker: todas las dependencias tienen paquetes binarios para Linux con Python 3.14 (no hace falta compilador en la imagen `slim`), y las pruebas comprueban que la configuración del contenedor es válida para VEXA (loopback, Tailscale, `/data/vexa` y `/respaldos`). La primera vez, ejecuta `docker compose up -d --build` y revisa `docker compose logs vexa`.
