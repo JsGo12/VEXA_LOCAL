@@ -31,10 +31,11 @@ VEXA lee su configuración en este orden de prioridad:
 | `VEXA_BACKUP_DIR` | `%USERPROFILE%\VEXA_respaldos` | Carpeta del respaldo automático (idealmente un disco externo; fuera de la carpeta de datos). Ver [respaldos.md](respaldos.md). |
 | `VEXA_BACKUP_HOURS` | `24` | Cada cuántas horas respalda el servidor. `0` = desactivado. |
 | `VEXA_BACKUP_KEEP` | `7` | Cuántos respaldos conservar. |
+| `VEXA_IDLE_MINUTES` | `60` | Minutos sin uso antes de cerrar la sesión. Un minuto antes aparece un aviso con el botón "Seguir conectado". Las actualizaciones automáticas de la página (campana, mensajes) no cuentan como uso. `0` = desactivado. Rango 0–1440. |
 | `VEXA_AUDIT_RETENTION_DAYS` | `14` | Días que se conserva el registro de auditoría; los eventos más antiguos se borran al iniciar, al abrir Auditoría y cada 6 horas. `0` = no borrar nunca. Rango 0–3650. |
-| `VEXA_SESSION_COOKIE_SECURE` | `false` | `true` si se accede por HTTPS (p. ej. `tailscale serve`). |
+| `VEXA_SESSION_COOKIE_SECURE` | `false` | `true` si se accede por HTTPS (p. ej. `tailscale serve`; pasos en [tailscale.md](tailscale.md#6-https-opcional-dentro-de-la-tailnet-tailscale-serve)). |
 | `OLLAMA_HOST` | `http://127.0.0.1:11434` | Debe ser loopback: VEXA no envía documentos a IA externa. |
-| `VEXA_CHAT_MODEL` | vacío | Fuerza un modelo de chat (vacío = automático según RAM/GPU). |
+| `VEXA_CHAT_MODEL` | vacío | Fuerza un modelo de chat (vacío = automático según RAM/GPU). Lo que elija el administrador en **Administración > Modelo IA** tiene prioridad sobre este valor. |
 | `VEXA_EMBED_MODEL` | `bge-m3` | Modelo de embeddings (si falta, se usa solo BM25). |
 | `VEXA_OLLAMA_KEEP_ALIVE` | `5m` | Tiempo que el modelo queda cargado (`0` = descargar al terminar). |
 | `VEXA_TESSERACT_CMD` | vacío | Ruta de `tesseract.exe` para OCR. |

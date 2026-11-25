@@ -98,7 +98,9 @@ def trusted_hosts(settings: Settings, listeners: Iterable[Tuple[str, int]]) -> L
     hosts = {"127.0.0.1", "localhost", "::1", "[::1]"}
     for host, _port in listeners:
         hosts.add(host)
-    if settings.tailscale_enabled and settings.tailscale_host:
+    # Con `tailscale serve` (HTTPS) VEXA escucha solo en loopback, pero el navegador pide el nombre
+    # MagicDNS: se acepta ese nombre aunque TAILSCALE_ENABLED sea false. No abre ninguna dirección nueva.
+    if settings.tailscale_host:
         hosts.add(settings.tailscale_host)
         hosts.add(settings.tailscale_host.split(".")[0])
     return sorted(hosts)

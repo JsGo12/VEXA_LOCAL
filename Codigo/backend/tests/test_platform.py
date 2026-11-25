@@ -209,6 +209,14 @@ def test_container_configuration_is_valid_and_keeps_backups_outside_data():
     assert 'VOLUME ["/data", "/respaldos"]' in (BACKEND.parent / "docker" / "Dockerfile").read_text(encoding="utf-8")
 
 
+def test_tailscale_serve_hostname_is_trusted_while_listening_only_on_loopback():
+    settings = load_settings({"TAILSCALE_ENABLED": "false", "TAILSCALE_HOST": "vexa-servidor.tu-red.ts.net"},
+                             use_env_file=False)
+    listeners = network.listen_addresses(settings)
+    assert listeners == [("127.0.0.1", 5000)]                      # sigue escuchando solo en loopback
+    assert "vexa-servidor.tu-red.ts.net" in network.trusted_hosts(settings, listeners)
+
+
 def test_remote_address_filter():
     calls = []
     app = network.RemoteAddressFilter(lambda env, start: calls.append(env) or [b"ok"], allow_tailscale=False)
