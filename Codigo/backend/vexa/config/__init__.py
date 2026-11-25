@@ -63,6 +63,8 @@ class Settings:
     max_file_size: int = 30 * 1024 * 1024
     # Días que se conserva el registro de auditoría (0 = no se borra nunca).
     audit_retention_days: int = 14
+    # Minutos sin uso antes de cerrar la sesión (0 = nunca por inactividad).
+    idle_minutes: int = 60
     # Respaldo automático del servidor (VEXA_BACKUP_*). backup_hours=0 lo desactiva.
     backup_dir: Path = Path.home() / "VEXA_respaldos"
     backup_hours: int = 24
@@ -245,6 +247,7 @@ def load_settings(environ: Optional[Mapping[str, str]] = None, env_file: Optiona
         tailscale_enabled=ts_enabled, tailscale_bind_address=ts_bind, tailscale_port=ts_port,
         tailscale_host=ts_host, env_file=used_file,
         audit_retention_days=_int("VEXA_AUDIT_RETENTION_DAYS", get("VEXA_AUDIT_RETENTION_DAYS"), 14, 0, 3650),
+        idle_minutes=_int("VEXA_IDLE_MINUTES", get("VEXA_IDLE_MINUTES"), 60, 0, 24 * 60),
         backup_dir=backup_dir,
         backup_hours=_int("VEXA_BACKUP_HOURS", get("VEXA_BACKUP_HOURS"), 24, 0, 24 * 30),
         backup_keep=_int("VEXA_BACKUP_KEEP", get("VEXA_BACKUP_KEEP"), 7, 1, 365),

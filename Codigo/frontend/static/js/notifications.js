@@ -6,7 +6,7 @@
   const refresh = async () => {
     if (document.hidden) return;
     try {
-      const response = await fetch(bell.dataset.notifUrl, { headers: { Accept: 'application/json' } });
+      const response = await fetch(bell.dataset.notifUrl, { headers: { Accept: 'application/json', 'X-Vexa-Background': '1' } });
       if (!response.ok) return;
       const { unread } = await response.json();
       badge.hidden = !unread;

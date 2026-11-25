@@ -2,6 +2,7 @@
 <html lang="es" data-theme="dark">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if g.user and config.VEXA_IDLE_SECONDS %}<meta name="csrf-token" content="{{ csrf_token() }}"><meta name="vexa-idle-seconds" content="{{ config.VEXA_IDLE_SECONDS }}" data-ping-url="{{ url_for('system.keep_session_alive') }}" data-expire-url="{{ url_for('system.expire_session') }}" data-login-url="{{ url_for('auth.login') }}">{% endif %}
   <title>{% block title %}VEXA · Estudio jurídico{% endblock %}</title>
   <link rel="icon" href="{{ url_for('static', filename='img/icon_square.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
@@ -32,7 +33,7 @@
     {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-stack">{% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
     {% block content %}{% endblock %}
   </main>
-  {% if g.user %}<script src="{{ url_for('static', filename='js/notifications.js') }}"></script><script src="{{ url_for('static', filename='js/upload.js') }}"></script>{% endif %}
+  {% if g.user %}<script src="{{ url_for('static', filename='js/idle.js') }}"></script><script src="{{ url_for('static', filename='js/notifications.js') }}"></script><script src="{{ url_for('static', filename='js/upload.js') }}"></script>{% endif %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

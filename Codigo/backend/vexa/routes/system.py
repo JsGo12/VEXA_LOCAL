@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import logging
 
-from flask import Blueprint, Response, jsonify, render_template, request
+from flask import Blueprint, Response, current_app, flash, jsonify, render_template, request, session
 
 from vexa.permissions import login_required
 from vexa.rag import hybrid as rag_hybrid
 from vexa.rag import model_select
+from vexa.security import http as vexa_http
+from vexa.services import audit
 
 bp = Blueprint("system", __name__)
 LOGGER = logging.getLogger(__name__)
@@ -17,6 +19,23 @@ LOGGER = logging.getLogger(__name__)
 def health():
     """Comprobación mínima para que el lanzador de escritorio espere al backend."""
     return jsonify(ok=True, app="vexa")
+
+
+@bp.post("/api/sesion/activa")
+@login_required
+def keep_session_alive():
+    """La página avisa que la persona sigue usando VEXA (escribiendo, leyendo, moviendo el mouse)."""
+    return jsonify(ok=True)
+
+
+@bp.post("/api/sesion/expirar")
+@login_required
+def expire_session():
+    """La página llegó al límite de inactividad (idle.js): se cierra la sesión en el servidor."""
+    audit.record("auth.session_expired", "ok", details={"minutos": current_app.config["VEXA_IDLE_SECONDS"] // 60})
+    session.clear()
+    flash(vexa_http.IDLE_MESSAGE, "error")
+    return jsonify(ok=True)
 
 
 @bp.get("/api/ollama/status")

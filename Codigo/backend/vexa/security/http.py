@@ -2,10 +2,16 @@
 from __future__ import annotations
 
 import secrets
+import time
 
-from flask import Flask, abort, g, jsonify, redirect, request, session, url_for
+from flask import Flask, abort, flash, g, jsonify, redirect, request, session, url_for
 
 from vexa.database import connect
+
+# Peticiones automáticas de la página (campana, mensajes nuevos, estado de indexación…): no cuentan como uso
+# para el cierre por inactividad. El JavaScript las marca con esta cabecera.
+BACKGROUND_HEADER = "X-Vexa-Background"
+IDLE_MESSAGE = "Tu sesión se cerró por inactividad. Vuelve a iniciar sesión."
 
 # Rutas disponibles mientras la cuenta tiene un cambio de contraseña pendiente.
 PASSWORD_GATE_ALLOWED = {"auth.change_password", "auth.logout", "static", "system.health"}
@@ -19,6 +25,25 @@ def csrf_token() -> str:
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(32)
     return session["csrf_token"]
+
+
+def _check_idle(limit: int):
+    """Cierra la sesión si pasó `limit` segundos sin uso. Devuelve la respuesta a enviar, o None."""
+    now = int(time.time())
+    last = session.get("last_seen")
+    if limit and last is not None and now - int(last) > limit:
+        from vexa.services import audit
+        audit.record("auth.session_expired", "ok", details={"minutos": limit // 60})
+        g.user = None
+        session.clear()
+        csrf_token()
+        if request.path.startswith("/api/") or request.headers.get(BACKGROUND_HEADER):
+            return jsonify(ok=False, expired=True, error=IDLE_MESSAGE), 401
+        flash(IDLE_MESSAGE, "error")
+        return redirect(url_for("auth.login"))
+    if not request.headers.get(BACKGROUND_HEADER) or last is None:
+        session["last_seen"] = now
+    return None
 
 
 def install(app: Flask) -> None:
@@ -46,6 +71,10 @@ def install(app: Flask) -> None:
                 g.user = None
                 session.clear()
                 csrf_token()
+        if g.user is not None and request.endpoint != "static":
+            expired = _check_idle(app.config.get("VEXA_IDLE_SECONDS", 0))
+            if expired is not None:
+                return expired
         if g.user is not None and g.user["must_change_password"] and request.endpoint not in PASSWORD_GATE_ALLOWED:
             if request.path.startswith("/api/"):
                 return jsonify(ok=False, error="Debes cambiar tu contraseña antes de continuar."), 403

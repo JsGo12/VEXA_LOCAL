@@ -41,7 +41,7 @@
   const refresh = async (markRead = visible()) => {
     try {
       const url = `${panel.dataset.messagesUrl}?after=${lastId()}${markRead ? '&read=1' : ''}`;
-      const data = await (await fetch(url, { headers: { Accept: 'application/json' } })).json();
+      const data = await (await fetch(url, { headers: { Accept: 'application/json', 'X-Vexa-Background': '1' } })).json();
       const atBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 40;
       (data.messages || []).forEach(render);
       if (atBottom || markRead) scrollDown();
