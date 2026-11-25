@@ -49,6 +49,31 @@
       <button class="button button-primary">Cambiar contraseña</button></form>
   </section>
 
+  {% if two_factor.allowed %}
+  <section class="panel profile-card" id="doble-factor">
+    <div class="profile-card-head"><h2>Doble factor</h2>{% if two_factor.enabled %}<span class="state-chip is-on">Activado</span>{% endif %}</div>
+    {% if two_factor.enabled %}
+    <p class="hint">Al iniciar sesión, VEXA te pide además el código de 6 dígitos de tu app de autenticación.</p>
+    <form method="post" action="{{ url_for('auth.two_factor_disable') }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Contraseña actual <small>Para desactivarlo</small><input name="current_password" type="password" required autocomplete="current-password"></label>
+      <button class="button button-quiet">Desactivar doble factor</button></form>
+    {% elif two_factor.secret %}
+    <ol class="two-factor-steps">
+      <li>Abre una app de autenticación en tu celular (Google Authenticator, Microsoft Authenticator, Aegis…).</li>
+      <li>Elige <strong>agregar cuenta</strong> → <strong>ingresar una clave de configuración</strong>, escribe como nombre <strong>VEXA</strong> y esta clave (tipo: basada en el tiempo):</li>
+    </ol>
+    <code class="two-factor-key">{{ two_factor.secret }}</code>
+    <form method="post" action="{{ url_for('auth.two_factor_enable') }}" class="stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>3. Escribe el código de 6 dígitos que muestra la app<input name="code" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" required autocomplete="one-time-code"></label>
+      <button class="button button-primary">Activar doble factor</button></form>
+    <p class="hint">No compartas esta clave: quien la tenga puede generar tus códigos. Al activarlo se cierran tus otras sesiones.</p>
+    {% else %}
+    <p class="hint">Protege tu cuenta con un código de tu celular además de la contraseña. Recomendado para cuentas con acceso a toda la firma.</p>
+    <form method="post" action="{{ url_for('auth.two_factor_start') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button button-secondary">Configurar doble factor</button></form>
+    {% endif %}
+  </section>
+  {% endif %}
+
   <section class="panel profile-card">
     <div class="profile-card-head"><h2>Qué puedes hacer</h2></div>
     {% if permissions %}<ul class="permission-list">{% for key, label in permissions %}<li><span class="perm-check">✓</span>{{ label }}</li>{% endfor %}</ul>

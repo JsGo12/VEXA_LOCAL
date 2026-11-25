@@ -17,6 +17,8 @@ Resumen de controles y de sus límites. Cada control tiene pruebas en `backend/t
 - `session.clear()` al iniciar sesión (sin fijación de sesión); cookie `HttpOnly`, `SameSite=Lax`, `Secure` configurable, vigencia de 8 horas.
 - Cada petición recarga al usuario: una cuenta desactivada pierde la sesión de inmediato.
 - No existe registro público: `/setup` solo redirige.
+- **Cierre por inactividad** (`VEXA_IDLE_MINUTES`, 60 por defecto): el servidor guarda la hora del último uso en la sesión y la cierra al pasar el límite (auditado como `auth.session_expired`). Las peticiones automáticas de la página (campana, mensajes, estado de indexación) llevan `X-Vexa-Background` y no cuentan como uso; `static/js/idle.js` avisa un minuto antes y mantiene viva la sesión mientras la persona usa la página.
+- **Doble factor opcional** (TOTP, RFC 6238) para el administrador y el abogado jefe, en Mi perfil. La clave se guarda cifrada con el vault (`users.totp_secret`, `enc:`), cada código sirve una sola vez (`totp_last_step`) y los fallos cuentan para el mismo bloqueo de 5 intentos. Activarlo o desactivarlo cierra las demás sesiones. Si alguien pierde el celular, el administrador lo quita en Administración > Usuarios; si es el único administrador, en el PC servidor: `backend\scripts\quitar_doble_factor.py USUARIO`. Ambos quedan en la auditoría.
 
 ## CSRF, XSS y cabeceras
 
@@ -55,5 +57,5 @@ Los errores 400/403/404/413/500 se muestran con una página o JSON genérico. La
 
 - Sin TLS propio: dentro de la tailnet el tráfico va cifrado por WireGuard; para HTTPS usar `tailscale serve` (ver [tailscale.md](tailscale.md)).
 - Los administradores del sistema operativo del servidor pueden leer la memoria del proceso; DPAPI protege frente a otras cuentas, no frente al propio usuario de Windows.
-- No hay límite de tasa por IP ni MFA.
+- No hay límite de tasa por IP. El doble factor es opcional y solo para administrador y abogado jefe; no hay códigos de respaldo (lo reemplaza el administrador o el script del servidor).
 - La ocultación de respuestas antiguas del chat por expediente se basa en el nombre del documento citado y puede ocultar de más si hay nombres repetidos.

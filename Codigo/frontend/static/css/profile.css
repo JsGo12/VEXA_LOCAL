@@ -37,3 +37,7 @@
 .perm-check { flex-shrink: 0; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 5px; font-size: 10px; color: var(--green); background: #81d6ac1c; }
 @media (max-width: 800px) { .profile-grid { grid-template-columns: 1fr; } .profile-hero { flex-direction: column; align-items: flex-start; } }
 .profile-cases .deadline-cerrado { --deadline: var(--muted); }
+
+/* Doble factor */
+.two-factor-steps { margin: 0 0 10px; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.two-factor-key { display: block; margin: 0 0 12px; padding: 10px 12px; border: 1px dashed #7779f777; border-radius: 8px; font: 600 15px/1.5 Consolas, monospace; letter-spacing: .08em; word-break: break-all; user-select: all; }

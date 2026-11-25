@@ -9,6 +9,7 @@ from typing import Dict, Iterable, List, Optional
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from vexa.database import connect
+from vexa.security import totp, vault
 
 MIN_PASSWORD = 10
 CREDENTIALS_FILE = "credenciales_admin_inicial.txt"
@@ -162,9 +163,9 @@ def list_users(db_path: Path, supervised_by: Optional[int] = None):
     """Todas las cuentas o, para un abogado jefe, solo los abogados a su cargo."""
     with connect(db_path) as db:
         if supervised_by is None:
-            return db.execute("SELECT id, name, username, role, active, created_at FROM users "
+            return db.execute("SELECT id, name, username, role, active, created_at, totp_enabled FROM users "
                               "ORDER BY active DESC, name").fetchall()
-        return db.execute("""SELECT u.id, u.name, u.username, u.role, u.active, u.created_at FROM users u
+        return db.execute("""SELECT u.id, u.name, u.username, u.role, u.active, u.created_at, u.totp_enabled FROM users u
                              JOIN chief_lawyers s ON s.lawyer_id = u.id WHERE s.chief_id = ?
                              ORDER BY u.active DESC, u.name""", (supervised_by,)).fetchall()
 
@@ -245,3 +246,52 @@ def list_teams(db_path: Path, only_ids: Optional[Iterable[int]] = None):
     for row in members:
         by_team.setdefault(row["team_id"], []).append({"id": row["id"], "name": row["name"]})
     return [{"id": t["id"], "name": t["name"], "members": by_team.get(t["id"], [])} for t in teams]
+
+
+# ----------------------------------------------------------------- doble factor (TOTP, migración 10)
+TWO_FACTOR_ROLES = frozenset({"admin", "chief_lawyer"})
+
+
+def two_factor_enabled(db_path: Path, user_id: int) -> bool:
+    with connect(db_path) as db:
+        row = db.execute("SELECT totp_enabled FROM users WHERE id = ?", (user_id,)).fetchone()
+    return bool(row and row["totp_enabled"])
+
+
+def enable_two_factor(db_path: Path, user_id: int, secret: str, code: str) -> int:
+    """Activa el doble factor si el código de la app coincide. Cierra las demás sesiones; devuelve la época."""
+    step = totp.verify(secret, code)
+    if step is None:
+        raise UserError("El código no coincide. Revisa que la hora del celular sea automática e inténtalo de nuevo.")
+    with connect(db_path) as db:
+        db.execute("UPDATE users SET totp_secret = ?, totp_enabled = 1, totp_last_step = ?, "
+                   "session_epoch = session_epoch + 1 WHERE id = ?", (vault.enc_text(secret), step, user_id))
+        return db.execute("SELECT session_epoch FROM users WHERE id = ?", (user_id,)).fetchone()[0]
+
+
+def disable_two_factor(db_path: Path, user_id: int) -> int:
+    with connect(db_path) as db:
+        db.execute("UPDATE users SET totp_secret = NULL, totp_enabled = 0, totp_last_step = 0, "
+                   "session_epoch = session_epoch + 1 WHERE id = ?", (user_id,))
+        return db.execute("SELECT session_epoch FROM users WHERE id = ?", (user_id,)).fetchone()[0]
+
+
+def check_two_factor(db_path: Path, user_id: int, code: str) -> bool:
+    """Verifica el código del inicio de sesión. Cada código sirve una sola vez."""
+    with connect(db_path) as db:
+        row = db.execute("SELECT totp_secret, totp_last_step FROM users WHERE id = ? AND active = 1 AND totp_enabled = 1",
+                         (user_id,)).fetchone()
+        if row is None or not row["totp_secret"]:
+            return False
+        step = totp.verify(vault.dec_text(row["totp_secret"]), code, row["totp_last_step"])
+        if step is None:
+            return False
+        updated = db.execute("UPDATE users SET totp_last_step = ? WHERE id = ? AND totp_last_step < ?",
+                             (step, user_id, step)).rowcount
+    return updated == 1
+
+
+def verify_password(db_path: Path, user_id: int, password: str) -> bool:
+    with connect(db_path) as db:
+        row = db.execute("SELECT password_hash FROM users WHERE id = ? AND active = 1", (user_id,)).fetchone()
+    return bool(row and check_password_hash(row["password_hash"], password))
