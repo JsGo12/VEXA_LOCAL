@@ -22,6 +22,7 @@ VEXA usa SQLite (`vexa_web.db`). El esquema se versiona con `PRAGMA user_version
 | 7 | Tabla `notifications` (avisos dentro de la app) | Solo agrega. |
 | 8 | Columnas `cases.close_reason` y `case_updates.close_reason` (motivo de cierre) | Solo agrega. Los casos ya cerrados quedan «sin motivo registrado» y conservan su avance. |
 | 9 | Tablas `case_messages` (mensajes del equipo por caso, texto cifrado) y `case_message_reads` | Solo agrega. |
+| 10 | Tabla `app_settings` (modelo de chat elegido en Administración) y columnas `users.totp_secret` (cifrada), `totp_enabled`, `totp_last_step` (doble factor) | Solo agrega. Nadie queda con doble factor activado y el modelo sigue el `.env` hasta que el administrador elija otro. |
 
 Ninguna migración elimina usuarios, casos, asignaciones, documentos, historial ni claves. La clave de cifrado (`vault.key`) y los archivos cifrados no se tocan.
 

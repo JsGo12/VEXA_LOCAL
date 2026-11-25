@@ -321,6 +321,28 @@ def _m9_case_messages(db: sqlite3.Connection) -> None:
     """)
 
 
+def _m10_settings_and_two_factor(db: sqlite3.Connection) -> None:
+    """Ajustes que el administrador cambia desde la app (modelo de chat) y doble factor (TOTP). Solo agrega.
+
+    users.totp_secret se guarda cifrado con el vault (enc:); totp_last_step evita reutilizar un código.
+    """
+    _run_script(db, """
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_by INTEGER REFERENCES users(id),
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    columns = {row[1] for row in db.execute("PRAGMA table_info(users)").fetchall()}
+    if "totp_secret" not in columns:
+        db.execute("ALTER TABLE users ADD COLUMN totp_secret TEXT")
+    if "totp_enabled" not in columns:
+        db.execute("ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0")
+    if "totp_last_step" not in columns:
+        db.execute("ALTER TABLE users ADD COLUMN totp_last_step INTEGER NOT NULL DEFAULT 0")
+
+
 MIGRATIONS: List[Tuple[int, str, Callable[[sqlite3.Connection], None]]] = [
     (1, "cases.summary", _m1_case_summary),
     (2, "rol chief_lawyer en users", _m2_chief_lawyer_role),
@@ -331,6 +353,7 @@ MIGRATIONS: List[Tuple[int, str, Callable[[sqlite3.Connection], None]]] = [
     (7, "notificaciones", _m7_notifications),
     (8, "motivo de cierre de los casos", _m8_close_reason),
     (9, "mensajes del equipo por caso", _m9_case_messages),
+    (10, "ajustes de la app y doble factor", _m10_settings_and_two_factor),
 ]
 LATEST_VERSION = MIGRATIONS[-1][0]
 
