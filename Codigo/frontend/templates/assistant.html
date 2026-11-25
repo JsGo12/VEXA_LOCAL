@@ -9,6 +9,7 @@
      data-base-url="{{ url_for('assistant.list_conversations') }}"
      data-case-url="{{ url_for('cases.case_workspace', case_id=0) }}"
      data-document-url="{{ url_for('cases.download_document', document_id=0) }}"
+     data-view-url="{{ url_for('cases.view_document', document_id=0) }}"
      data-ollama-url="{{ url_for('system.ollama_status') }}">
   <aside class="panel conversation-panel">
     <button type="button" id="newConversation" class="button button-primary">Nueva conversación</button>
@@ -27,4 +28,4 @@
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/ndjson.js') }}"></script><script src="{{ url_for('static', filename='js/assistant.js') }}"></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/ndjson.js') }}"></script><script src="{{ url_for('static', filename='js/doc-viewer.js') }}"></script><script src="{{ url_for('static', filename='js/assistant.js') }}"></script>{% endblock %}

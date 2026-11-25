@@ -7,18 +7,14 @@
   const input = document.getElementById('questionInput');
   const messages = document.getElementById('chatMessages');
 
-  const addMessage = (text, type, sources = []) => {
+  // links: fuentes con enlace al documento (del servidor); sources: solo los textos, si no hay enlaces.
+  const addMessage = (text, type, sources = [], links = []) => {
     const block = document.createElement('article');
     block.className = `chat-message ${type}`;
     const body = document.createElement('p');
     body.textContent = text;
     block.appendChild(body);
-    if (sources.length) {
-      const refs = document.createElement('div');
-      refs.className = 'sources';
-      refs.textContent = 'Fuentes: ' + sources.join(' | ');
-      block.appendChild(refs);
-    }
+    Vexa.renderSourceLinks(block, links, sources);
     messages.appendChild(block);
     messages.scrollTop = messages.scrollHeight;
     return block;
@@ -57,12 +53,7 @@
             messages.scrollTop = messages.scrollHeight;
           } else if (item.type === 'done') {
             if (!block) { wait.remove(); block = addMessage('', 'assistant-message'); }
-            if (item.sources?.length) {
-              const refs = document.createElement('div');
-              refs.className = 'sources';
-              refs.textContent = 'Fuentes: ' + item.sources.join(' | ');
-              block.appendChild(refs);
-            }
+            Vexa.renderSourceLinks(block, item.links, item.sources || []);
           } else if (item.type === 'progress' && !block) {
             wait.querySelector('p').textContent = `Revisando el expediente completo… bloque ${Math.min(item.done + 1, item.total)} de ${item.total}`;
           }
@@ -71,7 +62,7 @@
         const result = await response.json();
         if (!result.ok) throw new Error(result.error || 'No se pudo completar la consulta.');
         wait.remove();
-        addMessage(result.answer, 'assistant-message', result.sources || []);
+        addMessage(result.answer, 'assistant-message', result.sources || [], result.links || []);
       }
     } catch (error) {
       wait.remove();
@@ -104,14 +95,14 @@
     try {
       const data = await (await fetch(urls.historyUrl)).json();
       (data.messages || []).forEach(m => addMessage(m.content, m.role === 'user' ? 'user-message' : 'assistant-message',
-        m.sources ? m.sources.split(' | ') : []));
+        m.sources ? m.sources.split(' | ') : [], m.links || []));
     } catch (_) { /* el historial es opcional */ }
   };
 
   const pollPrep = async () => {
     const bar = document.getElementById('prepBar');
     try {
-      const s = await (await fetch(urls.statusUrl)).json();
+      const s = await (await fetch(urls.statusUrl, { headers: { 'X-Vexa-Background': '1' } })).json();
       if (s.state === 'running') {
         bar.hidden = false;
         document.getElementById('prepFill').style.width = Math.round(s.progress * 100) + '%';
@@ -127,7 +118,7 @@
 
   const pollSummary = async (n = 0) => {
     try {
-      const s = await (await fetch(urls.summaryUrl)).json();
+      const s = await (await fetch(urls.summaryUrl, { headers: { 'X-Vexa-Background': '1' } })).json();
       if (s.summary) {
         const el = document.getElementById('aiSummary');
         el.hidden = false;

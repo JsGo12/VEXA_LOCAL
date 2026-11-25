@@ -14,6 +14,8 @@
   const convUrl = (id, suffix) => `${urls.baseUrl}/${id}/${suffix}`;
   const caseUrl = id => urls.caseUrl.replace(/0$/, String(id));
   const documentUrl = id => urls.documentUrl.replace(/0$/, String(id));
+  const viewUrl = id => urls.viewUrl.replace(/0\/ver$/, `${id}/ver`);
+  const VIEWABLE = /\.(pdf|txt|csv)$/i;           // se abren en el visor; el resto se descarga
 
   const pageLabel = s => (s.page_start ? (s.page_end && s.page_end !== s.page_start ? ` · págs. ${s.page_start}-${s.page_end}` : ` · pág. ${s.page_start}`) : '');
 
@@ -35,7 +37,14 @@
       row.appendChild(caseLink);
       const doc = document.createElement(s.downloadable ? 'a' : 'span');
       doc.className = 'source-doc';
-      if (s.downloadable) doc.href = documentUrl(s.document_id);
+      if (s.downloadable && VIEWABLE.test(s.label)) {
+        const pdfPage = /\.pdf$/i.test(s.label) && s.page_start ? `#page=${s.page_start}` : '';
+        doc.href = viewUrl(s.document_id) + pdfPage;
+        doc.dataset.viewer = '';
+        doc.dataset.label = `${s.label}${pageLabel(s)}`;
+      } else if (s.downloadable) {
+        doc.href = documentUrl(s.document_id);
+      }
       doc.textContent = `${s.label}${pageLabel(s)}`;
       row.appendChild(doc);
       box.appendChild(row);

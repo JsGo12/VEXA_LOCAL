@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 import time
 import zipfile
 from pathlib import Path
@@ -31,6 +32,38 @@ bp = Blueprint("cases", __name__)
 LOGGER = logging.getLogger(__name__)
 NO_RESULTS = ("No encontré información relacionada en este expediente. Prueba con un nombre, fecha, monto "
               "o frase que aparezca en el documento.")
+
+
+# Documentos que el navegador puede mostrar dentro de VEXA (visor); el resto se descarga.
+VIEWABLE_TYPES = {".pdf": "application/pdf", ".txt": "text/plain; charset=utf-8", ".csv": "text/plain; charset=utf-8"}
+_SOURCE_RE = re.compile(r"^(?P<name>.+?) — páginas? (?P<page>\d+)")
+
+
+def document_link(document_id: int, name: str, page=None) -> dict:
+    """Destino de una cita: el visor (con la página, si es PDF) o la descarga."""
+    ext = Path(name).suffix.lower()
+    if ext in VIEWABLE_TYPES:
+        url = url_for("cases.view_document", document_id=document_id)
+        return {"url": url + (f"#page={int(page)}" if page and ext == ".pdf" else ""), "viewer": True}
+    return {"url": url_for("cases.download_document", document_id=document_id), "viewer": False}
+
+
+def source_links(labels, documents) -> list:
+    """Cada fuente ("demanda.pdf — página 3") con el enlace al documento, si el usuario puede abrirlo.
+
+    Si dos documentos visibles se llaman igual, no se enlaza (no se sabe a cuál apunta la cita)."""
+    by_name = {}
+    for d in documents:
+        by_name.setdefault(d["original_name"], []).append(d)
+    allowed = can("documents.download")
+    links = []
+    for label in labels:
+        item = {"label": label, "url": None, "viewer": False}
+        match = _SOURCE_RE.match(label)
+        if allowed and match and len(by_name.get(match["name"], [])) == 1:
+            item.update(document_link(by_name[match["name"]][0]["id"], match["name"], match["page"]))
+        links.append(item)
+    return links
 
 
 def _my_cases():
@@ -252,6 +285,31 @@ def download_document(document_id):
     return send_file(io.BytesIO(content), as_attachment=True, download_name=document["original_name"])
 
 
+@bp.get("/documents/<int:document_id>/ver")
+@login_required
+def view_document(document_id):
+    """Muestra un PDF o texto dentro de VEXA (visor de las citas). Mismo permiso que descargar."""
+    document = require_document(document_id, "documents.download")
+    mimetype = VIEWABLE_TYPES.get(Path(document["original_name"]).suffix.lower())
+    if mimetype is None:
+        return redirect(url_for("cases.download_document", document_id=document_id))
+    if not Path(document["stored_path"]).is_file():
+        return render_template("error.html", code="404", message="El archivo ya no está disponible."), 404
+    try:
+        content = vault.read_bytes(document["stored_path"])
+    except Exception:
+        LOGGER.error("No se pudo descifrar el documento %s", document_id)
+        return render_template("error.html", code="500", message="No se pudo leer el documento cifrado."), 500
+    audit.record("documents.view", "ok", resource_type="document", resource_id=document_id,
+                 details={"caso": document["case_id"]})
+    response = send_file(io.BytesIO(content), mimetype=mimetype, as_attachment=False,
+                         download_name=document["original_name"])
+    # Solo se puede incrustar en páginas de VEXA (el visor); nunca en otro sitio.
+    response.headers["Content-Security-Policy"] = "frame-ancestors 'self'"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    return response
+
+
 @bp.get("/api/case/<int:case_id>/status")
 @login_required
 def case_status(case_id):
@@ -277,6 +335,9 @@ def case_history(case_id):
         if m["role"] == "assistant" and any(m["sources"].startswith(n + " ") or f"| {n} " in m["sources"]
                                             for n in hidden):
             m.update(content="[Respuesta oculta: cita un documento al que ya no tienes acceso.]", sources="")
+    visible = visible_documents(case_id)
+    for m in messages:
+        m["links"] = source_links(m["sources"].split(" | "), visible) if m.get("sources") else []
     return jsonify(messages=messages)
 
 
@@ -357,7 +418,7 @@ def case_chat(case_id):
             answer, sources = cached
             store.add_message(db_path, case_id, user_id, "user", question)
             store.add_message(db_path, case_id, user_id, "assistant", answer, sources)
-            return jsonify(ok=True, answer=answer, sources=sources, cached=True)
+            return jsonify(ok=True, answer=answer, sources=sources, links=source_links(sources, visible), cached=True)
 
     staged = rag_stages.es_totalidad(standalone)
     fragments, stage_chunks = [], []
@@ -405,7 +466,7 @@ def case_chat(case_id):
                         case_id, perfil.modelo, staged, index.semantico, index_cache_hit, len(index.chunks),
                         len(fragments), standalone != question, (time.perf_counter() - generation_started) * 1000,
                         (time.perf_counter() - request_started) * 1000)
-            yield _event("done", sources=sources, cached=False)
+            yield _event("done", sources=sources, links=source_links(sources, visible), cached=False)
         except Exception as exc:
             LOGGER.exception("Error al consultar caso %s", case_id)
             yield _event("error", error=ollama_error_message(exc))
