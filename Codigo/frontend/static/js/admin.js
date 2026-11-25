@@ -27,6 +27,8 @@ document.querySelectorAll('.js-assignment-type').forEach(kindSelect => {
   };
   tabs.forEach(tab => tab.addEventListener('click', event => {
     if (event.ctrlKey || event.metaKey || event.shiftKey) return;   // permite abrir en otra pestaña
+    // Pestañas que se cargan al abrirlas (p. ej. Modelo IA consulta a Ollama): navegar de verdad.
+    if (document.getElementById(`tab-${tab.dataset.tab}`)?.hasAttribute('data-lazy')) return;
     event.preventDefault();
     show(tab.dataset.tab);
     try { history.replaceState(null, '', tab.href); } catch (_) { /* sin historial: igual funciona */ }

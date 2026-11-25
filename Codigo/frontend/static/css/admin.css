@@ -88,3 +88,15 @@
 .backup-warn { margin: 4px 0 0; font-size: 11px; color: #f5d899; line-height: 1.5; }
 .backup-ok { margin: 4px 0 0; font-size: 11px; color: var(--green); }
 .backup-cmd { display: block; padding: 8px 10px; border-radius: 8px; background: #0b0f17; border: 1px solid var(--line); font-size: 10px; color: #c8c9ff; overflow-wrap: anywhere; }
+
+/* Administración > Modelo IA */
+.model-form { padding: 16px 18px; display: grid; gap: 10px; }
+.model-option { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.model-option:has(input:checked) { border-color: #7779f7; background: #7779f714; }
+.model-option input { margin-top: 3px; accent-color: var(--accent); }
+.model-option span { display: grid; gap: 3px; font-size: 12px; }
+.model-option small { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.model-option.is-disabled { opacity: .6; cursor: not-allowed; }
+.model-option .model-warn { color: #f5d899; }
+.model-form .action-btn { justify-self: start; }
+html[data-theme="light"] .model-option .model-warn { color: #9a6700; }

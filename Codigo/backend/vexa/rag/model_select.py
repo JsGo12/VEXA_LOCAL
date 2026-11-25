@@ -111,3 +111,38 @@ def perfil_actual(ttl: float = 60.0) -> Perfil:
     perfil = perfil_para(inst)
     _cache.update(t=time.time(), perfil=perfil)
     return perfil
+
+
+# Para la pestaña Administración > Modelo IA: qué pide cada modelo (coincide con nivel_recomendado).
+DESCRIPCION = {
+    "llama3.1:8b": ("La mejor calidad; la más lenta", "24 GB de RAM o GPU NVIDIA de 6 GB"),
+    "llama3.2": ("Buena calidad, velocidad media", "12 GB de RAM o GPU NVIDIA de 3 GB"),
+    "llama3.2:1b": ("La más rápida; respuestas más simples", "Cualquier equipo (desde 8 GB de RAM)"),
+}
+
+
+def estado(instalados: Optional[Set[str]]) -> dict:
+    """Resumen sin secretos para que el administrador elija el modelo: hardware, recomendado e instalados.
+
+    `instalados` es None si Ollama no respondió."""
+    ram, vram = hardware()
+    disponible = None
+    try:
+        import psutil
+        disponible = psutil.virtual_memory().available / 1024 ** 3
+    except Exception:
+        pass
+    recomendado_idx = nivel_recomendado(ram, vram)
+    opciones = []
+    for idx, (modelo, _ctx, _chars) in enumerate(NIVELES):
+        calidad, requisito = DESCRIPCION[modelo]
+        opciones.append({
+            "modelo": modelo, "calidad": calidad, "requisito": requisito,
+            "instalado": None if instalados is None else modelo_instalado(modelo, instalados),
+            "recomendado": idx == recomendado_idx,
+            "pesado": idx < recomendado_idx,          # pide más de lo que tiene este equipo
+        })
+    actual = elegir(instalados or set(), ram, vram, CHAT_MODEL).modelo
+    return {"ram_gb": ram, "ram_libre_gb": disponible, "vram_gb": vram, "opciones": opciones,
+            "recomendado": NIVELES[recomendado_idx][0], "actual": actual, "forzado": CHAT_MODEL,
+            "ollama_ok": instalados is not None}

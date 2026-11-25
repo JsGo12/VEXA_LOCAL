@@ -19,7 +19,7 @@ from vexa.rag import formats as rag_formats
 from vexa.rag import hybrid as rag_hybrid
 from vexa.rag import model_select
 from vexa.security import network, session_secret, vault
-from vexa.services import audit
+from vexa.services import app_settings, audit
 from vexa.services import users as user_service
 from vexa.services.assistant import FirmAssistant
 from vexa.services.indexing import CaseIndexer
@@ -67,6 +67,7 @@ def create_app(settings: Optional[Settings] = None, *,
     apply_engine_settings(settings)
 
     backup = migrations.migrate(settings.db_path, settings.backups_dir)
+    app_settings.apply_chat_model(settings.db_path, settings.chat_model)   # lo elegido en la app > .env
     audit.purge_older_than(settings.db_path, settings.audit_retention_days)
     user_service.ensure_initial_admin(settings.db_path, settings.data_dir,
                                       settings.admin_username, settings.admin_password)
@@ -89,6 +90,7 @@ def create_app(settings: Optional[Settings] = None, *,
         PROPAGATE_EXCEPTIONS=False,
         VEXA_DB_PATH=settings.db_path,
         VEXA_AUDIT_RETENTION_DAYS=settings.audit_retention_days,
+        VEXA_IDLE_SECONDS=settings.idle_minutes * 60,
     )
     indexer = CaseIndexer(settings.db_path)
     app.extensions["vexa"] = Runtime(settings=settings, indexer=indexer,

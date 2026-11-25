@@ -7,6 +7,7 @@
   'usuarios': ('◉', 'Usuarios', users|length, 'Cuentas, roles y contraseñas'),
   'equipos': ('◎', 'Equipos', teams|length, 'Grupos de abogados'),
   'supervision': ('⚑', 'Supervisión', chiefs|length, 'Abogados a cargo de cada jefe'),
+  'modelo': ('✦', 'Modelo IA', 3, 'Velocidad o calidad del chat'),
   'respaldos': ('⛁', 'Respaldos', (backup.files|length) if backup else 0, 'Copias de seguridad y recuperación'),
 } %}
 <div class="page-heading"><div><span class="eyebrow">PANEL DE ADMINISTRACIÓN</span><h1>Administración</h1><p>Elige qué quieres gestionar. Los permisos sobre datos se ajustan en <a class="text-link" href="{{ url_for('access.page') }}">Permisos</a>.</p></div><span class="local-badge">● Servidor privado</span></div>
@@ -79,6 +80,7 @@
         <div class="action-dialog-head"><div><span class="eyebrow">GESTIONAR CUENTA</span><h2>{{ user.name }} <small class="muted">@{{ user.username }}</small></h2></div><button type="button" class="action-btn action-btn-ghost" data-close-dialog aria-label="Cerrar">✕</button></div>
         <div class="dialog-section"><h3>Rol</h3><form method="post" action="{{ url_for('admin.change_role', user_id=user.id) }}" class="dialog-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><select name="role">{% for role in assignable_roles %}<option value="{{ role }}" {% if role == user.role %}selected{% endif %}>{{ ROLE_LABELS[role] }}</option>{% endfor %}</select><button class="action-btn">Cambiar rol</button></form></div>
         <div class="dialog-section"><h3>Contraseña temporal</h3><p class="hint">La persona deberá cambiarla al entrar y se cerrarán sus sesiones abiertas.</p><form method="post" action="{{ url_for('admin.reset_password', user_id=user.id) }}" class="dialog-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="password" name="password" minlength="10" required autocomplete="new-password" placeholder="Mínimo 10 caracteres"><button class="action-btn">Asignar</button></form></div>
+        {% if user.totp_enabled and g.user.role == 'admin' and user.id != g.user.id %}<div class="dialog-section"><h3>Doble factor</h3><p class="hint">Activado. Quítalo solo si la persona perdió su celular: podrá entrar con su contraseña y configurarlo de nuevo.</p><form method="post" action="{{ url_for('admin.reset_two_factor', user_id=user.id) }}" class="dialog-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="action-btn">Quitar doble factor</button></form></div>{% endif %}
         <div class="dialog-section"><h3>Estado</h3><form method="post" action="{{ url_for('admin.change_active', user_id=user.id) }}" class="dialog-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="active" value="{{ '0' if user.active else '1' }}"><span class="hint">La cuenta está {{ 'activa' if user.active else 'desactivada' }}.</span><button class="action-btn {{ 'action-danger' if user.active else 'action-btn-primary' }}">{{ 'Desactivar cuenta' if user.active else 'Activar cuenta' }}</button></form></div>
       </div></dialog>{% endif %}</td></tr>
   {% else %}<tr><td data-label="Persona" colspan="4" class="empty-inline">{{ 'Aún no hay cuentas.' if g.user.role == 'admin' else 'El administrador aún no te asigna abogados.' }}</td></tr>{% endfor %}
@@ -147,6 +149,46 @@
 </section>
 {% endif %}
 
+{# ============================================================= MODELO IA #}
+{% if 'modelo' in tabs %}
+<section class="admin-panel" id="tab-modelo" role="tabpanel" {% if active_tab != 'modelo' %}hidden{% endif %}{% if not model %} data-lazy{% endif %}>
+  {% if model %}
+  <div class="admin-toolbar">
+    <div><h2>Modelo de IA del chat</h2><p class="hint">Elige entre rapidez y calidad. El cambio se aplica al instante para todos, sin reiniciar el servidor.</p></div>
+  </div>
+  <div class="backup-grid">
+    <article class="panel backup-card">
+      <h3>En uso ahora</h3>
+      <p class="backup-big is-ok">{{ model.actual }}</p>
+      <p class="hint">{% if model.choice == 'auto' %}Automático: VEXA elige según la memoria del equipo.{% elif model.choice %}Elegido en esta pestaña.{% elif model.env_model %}Fijado en el .env (VEXA_CHAT_MODEL).{% else %}Automático: VEXA elige según la memoria del equipo.{% endif %}</p>
+    </article>
+    <article class="panel backup-card">
+      <h3>Este equipo</h3>
+      <p class="backup-big">{% if model.ram_gb %}{{ '%.0f'|format(model.ram_gb) }} GB de RAM{% else %}RAM desconocida{% endif %}</p>
+      <p class="hint">{% if model.ram_libre_gb is not none %}{{ '%.1f'|format(model.ram_libre_gb) }} GB libres ahora{% endif %}{% if model.vram_gb %} · GPU NVIDIA de {{ '%.0f'|format(model.vram_gb) }} GB{% endif %}</p>
+      <p class="hint">Recomendado: <strong>{{ model.recomendado }}</strong></p>
+    </article>
+  </div>
+  {% if not model.ollama_ok %}<p class="backup-alert">Ollama no responde en este equipo: no se puede comprobar qué modelos están instalados. Ábrelo y recarga la página.</p>{% endif %}
+  <form method="post" action="{{ url_for('admin.set_chat_model') }}" class="panel model-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% set current_choice = model.choice or ('auto' if not model.env_model else model.env_model) %}
+    <label class="model-option"><input type="radio" name="model" value="auto" {% if current_choice == 'auto' %}checked{% endif %}>
+      <span><strong>Automático</strong><small>VEXA usa el mejor modelo instalado que este equipo puede mover con fluidez.</small></span></label>
+    {% for o in model.opciones %}
+    <label class="model-option{% if o.instalado == false %} is-disabled{% endif %}"><input type="radio" name="model" value="{{ o.modelo }}" {% if current_choice == o.modelo %}checked{% endif %} {% if o.instalado == false %}disabled{% endif %}>
+      <span><strong>{{ o.modelo }}</strong>{% if o.recomendado %} <span class="state-chip is-on">recomendado</span>{% endif %}
+        <small>{{ o.calidad }} · necesita {{ o.requisito }}</small>
+        {% if o.instalado == false %}<small class="model-note">No instalado. En el PC servidor: <code>ollama pull {{ o.modelo }}</code></small>
+        {% elif o.pesado %}<small class="model-warn">⚠ Pide más memoria de la que tiene este equipo: puede responder muy lento o quedarse sin memoria.</small>{% endif %}</span></label>
+    {% endfor %}
+    <button class="action-btn action-btn-primary">Guardar modelo</button>
+  </form>
+  {% else %}
+  <p class="hint"><a class="text-link" href="{{ url_for('admin.dashboard', tab='modelo') }}">Abrir la pestaña Modelo IA</a></p>
+  {% endif %}
+</section>
+{% endif %}
 {# ============================================================= RESPALDOS #}
 {% if 'respaldos' in tabs and backup %}
 <section class="admin-panel" id="tab-respaldos" role="tabpanel" {% if active_tab != 'respaldos' %}hidden{% endif %}>

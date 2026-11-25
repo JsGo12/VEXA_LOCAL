@@ -10,9 +10,10 @@ from vexa import runtime
 from vexa.database import connect
 from vexa.permissions import MANAGEMENT_PERMISSIONS, ROLES, can, permission_required, policy
 from vexa.permissions.catalog import ROLES_ASSIGNABLE_BY
+from vexa.rag import model_select
 from vexa.routes.cases import upload_reply
 from vexa.security import recovery
-from vexa.services import audit, backups, exports
+from vexa.services import app_settings, audit, backups, exports
 from vexa.services import cases as case_service
 from vexa.services import messages as message_service
 from vexa.services import notifications as notification_service
@@ -22,7 +23,7 @@ from vexa.services.audit_view import local_time
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 
-ADMIN_TABS = ("casos", "usuarios", "equipos", "supervision", "respaldos")
+ADMIN_TABS = ("casos", "usuarios", "equipos", "supervision", "modelo", "respaldos")
 
 
 def _back(tab: str = "casos"):
@@ -49,6 +50,18 @@ def _backup_info(settings) -> dict:
     }
 
 
+def _model_info(settings) -> dict:
+    """Estado del modelo de chat para la pestaña Modelo IA (consulta a Ollama qué está instalado)."""
+    try:
+        installed = model_select.instalados_ollama()
+    except Exception:
+        installed = None
+    info = model_select.estado(installed)
+    info["choice"] = app_settings.chat_model_choice(settings.db_path)
+    info["env_model"] = settings.chat_model
+    return info
+
+
 @bp.get("")
 @permission_required(*MANAGEMENT_PERMISSIONS, any_of=True)
 def dashboard():
@@ -69,7 +82,7 @@ def dashboard():
         users = all_users if admin else user_service.list_users(settings.db_path, supervised_by=g.user["id"])
     tabs = [t for t, allowed in (("casos", can("cases.manage")), ("usuarios", can("users.manage")),
                                  ("equipos", can("teams.manage")), ("supervision", admin and can("users.manage")),
-                                 ("respaldos", admin))
+                                 ("modelo", admin), ("respaldos", admin))
             if allowed]
     requested = request.args.get("tab", "")
     return render_template(
@@ -83,6 +96,7 @@ def dashboard():
         all_lawyers=[u for u in all_users if u["role"] == "lawyer" and u["active"]],
         supervision=user_service.supervision_map(settings.db_path) if admin else {},
         backup=_backup_info(settings) if admin else None,
+        model=_model_info(settings) if admin and requested == "modelo" else None,
         assignable_roles=sorted(ROLES_ASSIGNABLE_BY.get(g.user["role"], frozenset())),
         max_mb=settings.max_file_size // (1024 * 1024),
     )
@@ -311,6 +325,21 @@ def reset_password(user_id):
     return _back("usuarios")
 
 
+@bp.post("/users/<int:user_id>/2fa/reset")
+@permission_required("users.manage")
+def reset_two_factor(user_id):
+    """Quita el doble factor de alguien que perdió su celular (solo el administrador, nunca el propio)."""
+    if not _is_admin() or user_id == g.user["id"]:
+        reason = "solo el administrador" if not _is_admin() else "el propio se quita desde Mi perfil"
+        audit.record("users.2fa_reset", "denied", resource_type="user", resource_id=user_id, reason=reason)
+        flash("Solo el administrador puede quitar el doble factor de otra cuenta.", "error")
+        return _back("usuarios")
+    user_service.disable_two_factor(runtime().settings.db_path, user_id)
+    audit.record("users.2fa_reset", "ok", resource_type="user", resource_id=user_id)
+    flash("Doble factor quitado. La persona podrá entrar solo con su contraseña y volver a configurarlo.", "success")
+    return _back("usuarios")
+
+
 # ------------------------------------------------------------- seguimiento
 @bp.get("/seguimiento")
 @permission_required("cases.manage")
@@ -356,3 +385,32 @@ def create_backup_now():
         audit.record("backups.create", "error", reason=str(exc)[:200])
         flash(f"No se pudo crear el respaldo: {exc}", "error")
     return _back("respaldos")
+
+
+@bp.post("/modelo")
+@permission_required("users.manage")
+def set_chat_model():
+    """El administrador elige el modelo de chat (o automático). Se aplica al instante, sin reiniciar."""
+    choice = request.form.get("model", "").strip()
+    if not _is_admin():
+        audit.record("settings.chat_model", "denied", reason="solo el administrador")
+        flash("Solo el administrador puede cambiar el modelo de IA.", "error")
+        return _back("casos")
+    if choice != app_settings.AUTO:
+        try:
+            installed = model_select.instalados_ollama()
+        except Exception:
+            installed = None
+        if choice not in model_select.NIVELES_DICT:
+            flash("Ese modelo no está entre los disponibles.", "error")
+            return _back("modelo")
+        if installed is not None and not model_select.modelo_instalado(choice, installed):
+            flash(f"El modelo {choice} no está instalado. En el PC servidor ejecuta: ollama pull {choice}", "error")
+            return _back("modelo")
+    settings = runtime().settings
+    previous = app_settings.chat_model_choice(settings.db_path)
+    app_settings.set_chat_model(settings.db_path, choice, g.user["id"], settings.chat_model)
+    audit.record("settings.chat_model", "ok", details={"antes": previous or "env", "despues": choice})
+    flash("Modelo de IA actualizado: " + ("automático según la RAM" if choice == app_settings.AUTO else choice) + ".",
+          "success")
+    return _back("modelo")

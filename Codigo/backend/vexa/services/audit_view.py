@@ -18,6 +18,10 @@ ACTION_LABELS = {
     "auth.login": "Inicio de sesión",
     "auth.logout": "Cierre de sesión",
     "auth.password_change": "Cambio de contraseña",
+    "auth.session_expired": "Sesión cerrada por inactividad",
+    "auth.2fa_enable": "Doble factor activado",
+    "auth.2fa_disable": "Doble factor desactivado",
+    "users.2fa_reset": "Doble factor quitado",
     "users.create": "Cuenta creada",
     "users.role_change": "Cambio de rol",
     "users.activate": "Cuenta activada",
@@ -37,6 +41,7 @@ ACTION_LABELS = {
     "cases.download": "Expediente descargado",
     "documents.upload": "Documentos agregados",
     "documents.download": "Documento descargado",
+    "documents.view": "Documento abierto en el visor",
     "documents.restriction": "Restricción de documento",
     "documents.acl": "Acceso a documento",
     "permissions.override": "Ajuste de permiso",
@@ -48,6 +53,7 @@ ACTION_LABELS = {
     "assistant.query": "Consulta al asistente",
     "access.denied": "Acceso denegado",
     "backups.create": "Respaldo manual",
+    "settings.chat_model": "Modelo de IA",
     "messages.send": "Mensaje del equipo",
     "exports.follow_up": "Exportación de seguimiento",
     "exports.audit": "Exportación de auditoría",
@@ -157,6 +163,15 @@ def _sentence(row, d: Dict[str, Any], n: _Names) -> str:
         return "Inició sesión en VEXA." if ok else "Intentó iniciar sesión sin éxito."
     if a == "auth.logout":
         return "Cerró su sesión."
+    if a == "auth.2fa_enable":
+        return "Activó el doble factor en su cuenta." if ok else "Intentó activar el doble factor con un código incorrecto."
+    if a == "auth.2fa_disable":
+        return "Desactivó el doble factor de su cuenta." if ok else "Intentó desactivar el doble factor sin éxito."
+    if a == "users.2fa_reset":
+        return (f"Quitó el doble factor de {n.user(rid)}." if ok
+                else f"Intentó quitar el doble factor de {n.user(rid)}.")
+    if a == "auth.session_expired":
+        return f"Su sesión se cerró sola tras {d.get('minutos', '?')} minutos sin uso."
     if a == "auth.password_change":
         return "Cambió su contraseña." if ok else "Intentó cambiar su contraseña sin éxito."
     if a == "users.create":
@@ -224,6 +239,9 @@ def _sentence(row, d: Dict[str, Any], n: _Names) -> str:
     if a == "documents.download":
         where = f" del caso {n.case(d.get('caso'))}" if d.get("caso") is not None else ""
         return f"Descargó el documento {n.doc(rid)}{where}." if ok else f"No pudo descargar el documento {n.doc(rid)}."
+    if a == "documents.view":
+        where = f" del caso {n.case(d.get('caso'))}" if d.get("caso") is not None else ""
+        return f"Abrió el documento {n.doc(rid)}{where} en el visor."
     if a == "documents.restriction":
         if not ok:
             return f"Intentó cambiar la restricción del documento {n.doc(rid)}."
@@ -255,6 +273,11 @@ def _sentence(row, d: Dict[str, Any], n: _Names) -> str:
             return (f"Consultó al asistente transversal sobre {d.get('expedientes', 0)} expediente(s) "
                     f"y {d.get('documentos', 0)} documento(s) autorizados.")
         return "Intentó consultar al asistente transversal sin expedientes autorizados."
+    if a == "settings.chat_model":
+        if not ok:
+            return "Intentó cambiar el modelo de IA del chat."
+        after = d.get("despues")
+        return "Cambió el modelo de IA del chat a " + ("automático (según la RAM)." if after == "auto" else f"{after}.")
     if a == "backups.create":
         if ok:
             return f"Creó un respaldo manual ({d.get('archivo', 'archivo')})."
