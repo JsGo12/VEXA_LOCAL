@@ -123,7 +123,7 @@ def _write_temp(path: Path, data: bytes) -> Path:
 
 
 def _write_atomic(path: Path, data: bytes) -> None:
-    """Replace a small key file atomically, cleaning up after interruptions."""
+    """Reemplaza un archivo de clave de forma atómica y limpia el temporal si algo se interrumpe."""
     tmp = _write_temp(path, data)
     try:
         os.replace(tmp, path)
