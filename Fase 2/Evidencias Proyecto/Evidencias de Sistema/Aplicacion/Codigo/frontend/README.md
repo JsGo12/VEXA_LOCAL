@@ -23,7 +23,9 @@ frontend/
 └── static/
     ├── css/  base.css (estilo original) · layout.css (navegación, piezas comunes)
     │         management.css (tablas de administración) · assistant.css · profile.css
-    ├── js/   ndjson.js (streaming y CSRF compartidos) · case-chat.js · case-dialog.js · assistant.js · admin.js
+    ├── js/   ndjson.js (streaming, CSRF, Detener y estado de Ollama) · case-chat.js · case-dialog.js · assistant.js · admin.js
+    │         doc-viewer.js (visor de citas) · idle.js (cierre por inactividad) · notifications.js · case-messages.js
+    │         case-collection.js · upload.js · print.js · progress-form.js · permissions.js · theme.js
     └── img/
 ```
 
