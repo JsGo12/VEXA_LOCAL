@@ -73,7 +73,7 @@ def action_label(action: str) -> str:
 
 
 def local_time(value: str | None) -> str:
-    """'2026-11-14T01:15:51.123Z' (UTC) -> '13-11-2026 22:15' en la hora del servidor."""
+    """'2026-11-14T01:15:51.123Z' (UTC) -> '13-11-2026 22:15:51' en la hora del servidor."""
     if not value:
         return ""
     try:
