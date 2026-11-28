@@ -19,3 +19,9 @@ def test_only_admin_changes_deadlines_and_lawyers_do_not_manage():
     assert [r for r, p in catalog.ROLE_PERMISSIONS.items() if "cases.set_deadline" in p] == ["admin"]
     assert not catalog.ROLE_PERMISSIONS["lawyer"] & catalog.MANAGEMENT_PERMISSIONS
     assert catalog.MANAGEMENT_PERMISSIONS <= set(catalog.PERMISSIONS)
+
+
+def test_chief_lawyer_can_only_assign_lawyers():
+    assert catalog.ROLES_ASSIGNABLE_BY["chief_lawyer"] == {"lawyer"}
+    assert catalog.ROLES_ASSIGNABLE_BY["admin"] == set(catalog.ROLES)
+    assert "lawyer" not in catalog.ROLES_ASSIGNABLE_BY
