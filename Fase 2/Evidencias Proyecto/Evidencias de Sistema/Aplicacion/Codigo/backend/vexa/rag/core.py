@@ -20,7 +20,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from functools import lru_cache
 from heapq import nlargest
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import ollama
 from docx import Document as DocxDocument
@@ -45,7 +45,7 @@ OLLAMA_HOST = "http://127.0.0.1:11434"
 OLLAMA_KEEP_ALIVE = os.environ.get("VEXA_OLLAMA_KEEP_ALIVE", "5m").strip() or "5m"
 
 
-def configurar(host: Optional[str] = None, keep_alive: Optional[str] = None) -> None:
+def configurar(host: str | None = None, keep_alive: str | None = None) -> None:
     """Aplica la configuración central (host de Ollama y keep_alive) al motor RAG."""
     global OLLAMA_HOST, OLLAMA_KEEP_ALIVE
     if host:
@@ -59,7 +59,7 @@ def _cliente(host: str):
     return ollama.Client(host=host)
 
 
-def cliente_ollama(host: Optional[str] = None):
+def cliente_ollama(host: str | None = None):
     """Reutiliza el cliente HTTP para conservar conexiones y evitar recrearlo."""
     return _cliente(host or OLLAMA_HOST)
 
@@ -80,7 +80,7 @@ class Chunk:
     # Página final del fragmento, solo si un registro cruza un salto de
     # página del PDF (ej. una ficha de "Cliente N" partida entre dos
     # páginas). Si es None, se asume que el chunk vive en una sola página.
-    page_number_fin: Optional[int] = None
+    page_number_fin: int | None = None
 
     @property
     def fuente(self) -> str:
@@ -95,8 +95,8 @@ class Chunk:
 class IndiceDocumental:
     """Contenedor del índice BM25 junto con los chunks originales."""
 
-    chunks: List[Chunk] = field(default_factory=list)
-    bm25: Optional[BM25Okapi] = None
+    chunks: list[Chunk] = field(default_factory=list)
+    bm25: BM25Okapi | None = None
 
     def esta_vacio(self) -> bool:
         return len(self.chunks) == 0
@@ -106,7 +106,7 @@ class IndiceDocumental:
 # MÓDULO DE PROCESAMIENTO DE DOCUMENTOS
 # =============================================================================
 
-def tokenizar(texto: str) -> List[str]:
+def tokenizar(texto: str) -> list[str]:
     """Tokeniza texto para BM25: minúsculas, sin tildes, solo palabras.
 
     BM25 funciona por coincidencia léxica exacta, por lo que normalizar
@@ -121,7 +121,7 @@ def tokenizar(texto: str) -> List[str]:
 
 def extraer_texto_docx(
     ruta_o_archivo, parrafos_por_pagina: int = 25
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Extrae el texto de un archivo .docx, simulando 'páginas' agrupando
     bloques de contenido, ya que Word no guarda paginación real en su
     estructura interna.
@@ -142,7 +142,7 @@ def extraer_texto_docx(
         Lista de dicts {"page_number": int, "text": str}.
     """
     doc = DocxDocument(ruta_o_archivo)
-    bloques: List[str] = []
+    bloques: list[str] = []
 
     def _texto_de_tabla(tabla) -> str:
         """Convierte una tabla en texto plano, una fila por línea,
@@ -183,7 +183,7 @@ def extraer_texto_docx(
     return paginas
 
 
-def detectar_encabezado_registro(texto_completo: str) -> Optional[re.Pattern]:
+def detectar_encabezado_registro(texto_completo: str) -> re.Pattern | None:
     """Detecta AUTOMÁTICAMENTE si el documento está estructurado en fichas
     repetidas (ej. "Cliente 1", "Paciente 2", "Ticket 003", "Empleado N",
     "Producto 45"...) sin asumir ninguna palabra fija de antemano — cada
@@ -205,7 +205,7 @@ def detectar_encabezado_registro(texto_completo: str) -> Optional[re.Pattern]:
         re.MULTILINE,
     )
 
-    conteo_por_etiqueta: Dict[str, set] = {}
+    conteo_por_etiqueta: dict[str, set] = {}
     for match in patron_linea.finditer(texto_completo):
         etiqueta = match.group(1).strip().lower()
         numero = match.group(2)
@@ -234,8 +234,8 @@ def detectar_encabezado_registro(texto_completo: str) -> Optional[re.Pattern]:
 
 
 def dividir_por_registros(
-    doc_name: str, paginas: List[Dict[str, Any]], patron_split: re.Pattern
-) -> List[Chunk]:
+    doc_name: str, paginas: list[dict[str, Any]], patron_split: re.Pattern
+) -> list[Chunk]:
     """Chunking para documentos tipo 'ficha' (Cliente 1, Paciente 2, ...).
 
     Concatena todas las páginas insertando un marcador invisible entre
@@ -256,7 +256,7 @@ def dividir_por_registros(
 
     bloques = patron_split.split(texto_completo)
 
-    chunks: List[Chunk] = []
+    chunks: list[Chunk] = []
     pagina_actual = paginas[0]["page_number"]
     idx_chunk = 0
 
@@ -295,7 +295,7 @@ def dividir_por_registros(
     return chunks
 
 
-def construir_indice(chunks: List[Chunk]) -> IndiceDocumental:
+def construir_indice(chunks: list[Chunk]) -> IndiceDocumental:
     """Construye el índice BM25 a partir de la lista de chunks."""
     if not chunks:
         return IndiceDocumental(chunks=[], bm25=None)
@@ -344,7 +344,7 @@ def buscar_contexto_relevante(
     pregunta: str,
     indice: IndiceDocumental,
     top_k: int = TOP_K_FRAGMENTOS,
-) -> List[Chunk]:
+) -> list[Chunk]:
     """Busca los `top_k` chunks más relevantes para la pregunta usando BM25.
 
     Args:
@@ -406,7 +406,7 @@ def buscar_contexto_relevante(
 PROMPT_SISTEMA = prompts.PROMPT_SISTEMA   # texto en vexa/rag/prompts.py
 
 
-def construir_prompt(pregunta: str, fragmentos: List[Chunk]) -> str:
+def construir_prompt(pregunta: str, fragmentos: list[Chunk]) -> str:
     """Ensambla el prompt final combinando el contexto recuperado con la
     pregunta del usuario."""
     contexto = "\n\n".join(

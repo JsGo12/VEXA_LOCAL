@@ -6,7 +6,6 @@ import shutil
 import subprocess
 import time
 from dataclasses import dataclass
-from typing import Optional, Set
 
 from vexa.rag import core as rag_core
 
@@ -18,10 +17,10 @@ NIVELES = [
 ]
 NIVELES_DICT = {m: (c, ch) for m, c, ch in NIVELES}
 _cache = {"t": 0.0, "perfil": None}
-CHAT_MODEL: Optional[str] = os.environ.get("VEXA_CHAT_MODEL") or None
+CHAT_MODEL: str | None = os.environ.get("VEXA_CHAT_MODEL") or None
 
 
-def configurar(chat_model: Optional[str] = None) -> None:
+def configurar(chat_model: str | None = None) -> None:
     """Fija el modelo de chat forzado (VEXA_CHAT_MODEL); None = selección automática."""
     global CHAT_MODEL
     CHAT_MODEL = chat_model or None
@@ -39,7 +38,7 @@ class Perfil:
         return {"num_ctx": self.num_ctx, "num_batch": 128, "num_predict": 256, "temperature": 0.1}
 
 
-def hardware() -> tuple[Optional[float], float]:
+def hardware() -> tuple[float | None, float]:
     """(RAM en GB o None, VRAM NVIDIA en GB; 0 si no hay GPU NVIDIA)."""
     ram = None
     try:
@@ -58,7 +57,7 @@ def hardware() -> tuple[Optional[float], float]:
     return ram, vram
 
 
-def nivel_recomendado(ram: Optional[float], vram: float) -> int:
+def nivel_recomendado(ram: float | None, vram: float) -> int:
     """Índice en NIVELES: 0 = el más capaz."""
     if vram >= 6 or (ram or 0) >= 24:
         return 0
@@ -67,7 +66,7 @@ def nivel_recomendado(ram: Optional[float], vram: float) -> int:
     return 2
 
 
-def elegir(instalados: Set[str], ram: Optional[float], vram: float, forzado: Optional[str] = None) -> Perfil:
+def elegir(instalados: set[str], ram: float | None, vram: float, forzado: str | None = None) -> Perfil:
     if forzado:
         c, ch = NIVELES_DICT.get(forzado, (2048, 4500))
         return Perfil(forzado, c, ch)
@@ -78,7 +77,7 @@ def elegir(instalados: Set[str], ram: Optional[float], vram: float, forzado: Opt
     return Perfil(*NIVELES[-1])
 
 
-def instalados_ollama() -> Set[str]:
+def instalados_ollama() -> set[str]:
     resp = rag_core.cliente_ollama().list()
     modelos = getattr(resp, "models", None)
     if modelos is None and isinstance(resp, dict):
@@ -90,13 +89,13 @@ def instalados_ollama() -> Set[str]:
     return nombres
 
 
-def perfil_para(instalados: Set[str]) -> Perfil:
+def perfil_para(instalados: set[str]) -> Perfil:
     """Select a chat profile from a known Ollama model list."""
     ram, vram = hardware()
     return elegir(instalados, ram, vram, CHAT_MODEL)
 
 
-def modelo_instalado(modelo: str, instalados: Set[str]) -> bool:
+def modelo_instalado(modelo: str, instalados: set[str]) -> bool:
     return any(nombre == modelo or nombre.startswith(modelo + ":") for nombre in instalados)
 
 
@@ -121,7 +120,7 @@ DESCRIPCION = {
 }
 
 
-def estado(instalados: Optional[Set[str]]) -> dict:
+def estado(instalados: set[str] | None) -> dict:
     """Resumen sin secretos para que el administrador elija el modelo: hardware, recomendado e instalados.
 
     `instalados` es None si Ollama no respondió."""

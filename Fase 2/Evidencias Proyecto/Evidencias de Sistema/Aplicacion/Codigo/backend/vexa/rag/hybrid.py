@@ -9,8 +9,8 @@ import hashlib
 import logging
 import os
 import re
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -31,7 +31,7 @@ RRF_K = 60
 HISTORY_TURNS = 3
 
 
-def configurar(embed_model: Optional[str] = None) -> None:
+def configurar(embed_model: str | None = None) -> None:
     """Aplica el modelo de embeddings definido en la configuración central."""
     global EMBED_MODEL
     if embed_model:
@@ -50,10 +50,10 @@ _CLAUSE_RE = re.compile(
 _SENT_RE = re.compile(r"(?<=[\.\;\:\!\?])\s+(?=[A-ZÁÉÍÓÚÑ0-9\"“(])")
 
 
-def _unidades(texto: str) -> List[str]:
+def _unidades(texto: str) -> list[str]:
     """Parte el texto en unidades lógicas: párrafos, y cada cláusula abre una nueva."""
-    unidades: List[str] = []
-    actual: List[str] = []
+    unidades: list[str] = []
+    actual: list[str] = []
     for linea in texto.splitlines():
         if not linea.strip():
             if actual:
@@ -67,7 +67,7 @@ def _unidades(texto: str) -> List[str]:
     return unidades
 
 
-def _partir_largo(unidad: str, maximo: int) -> List[str]:
+def _partir_largo(unidad: str, maximo: int) -> list[str]:
     """Unidad demasiado larga: se corta SOLO entre oraciones, nunca a mitad de frase."""
     if len(unidad) <= maximo:
         return [unidad]
@@ -82,7 +82,7 @@ def _partir_largo(unidad: str, maximo: int) -> List[str]:
     return piezas
 
 
-def chunkear(doc_name: str, paginas: List[dict]) -> Tuple[List[Chunk], bool]:
+def chunkear(doc_name: str, paginas: list[dict]) -> tuple[list[Chunk], bool]:
     """Devuelve (chunks, es_ficha). Las fichas repetidas (Cliente 1, 2...) quedan completas."""
     if not paginas:
         return [], False
@@ -91,7 +91,7 @@ def chunkear(doc_name: str, paginas: List[dict]) -> Tuple[List[Chunk], bool]:
     if patron is not None:
         return rag_core.dividir_por_registros(doc_name, paginas, patron), True
 
-    chunks: List[Chunk] = []
+    chunks: list[Chunk] = []
     buf, buf_ini, buf_fin = "", None, None
 
     def cerrar():
@@ -116,7 +116,7 @@ def chunkear(doc_name: str, paginas: List[dict]) -> Tuple[List[Chunk], bool]:
 
 
 # ---------------------------------------------------------------- embeddings
-def _embed(textos: List[str], modelo: str, host: Optional[str] = None) -> Optional[np.ndarray]:
+def _embed(textos: list[str], modelo: str, host: str | None = None) -> np.ndarray | None:
     """Embeddings normalizados vía Ollama; None si el modelo/servidor no está disponible."""
     try:
         cliente = rag_core.cliente_ollama(host)
@@ -134,18 +134,18 @@ def _embed(textos: List[str], modelo: str, host: Optional[str] = None) -> Option
 # -------------------------------------------------------------------- índice
 @dataclass
 class IndiceHibrido(IndiceDocumental):
-    vectores: Optional[np.ndarray] = None
-    docs_ficha: Set[str] = field(default_factory=set)
+    vectores: np.ndarray | None = None
+    docs_ficha: set[str] = field(default_factory=set)
     modelo_emb: str = EMBED_MODEL
-    posicion: Dict[Tuple[str, int], int] = field(default_factory=dict)
-    errores: List[str] = field(default_factory=list)
+    posicion: dict[tuple[str, int], int] = field(default_factory=dict)
+    errores: list[str] = field(default_factory=list)
 
     @property
     def semantico(self) -> bool:
         return self.vectores is not None
 
 
-def _armar(chunks: List[Chunk], vectores, fichas: Set[str], modelo: str) -> IndiceHibrido:
+def _armar(chunks: list[Chunk], vectores, fichas: set[str], modelo: str) -> IndiceHibrido:
     base = rag_core.construir_indice(chunks)
     idx = IndiceHibrido(chunks=base.chunks, bm25=base.bm25, docs_ficha=set(fichas), modelo_emb=modelo)
     idx.posicion = {(c.doc_name, c.chunk_index): p for p, c in enumerate(idx.chunks)}
@@ -155,12 +155,12 @@ def _armar(chunks: List[Chunk], vectores, fichas: Set[str], modelo: str) -> Indi
 
 
 def construir_indice_hibrido(
-    rutas: List[str],
+    rutas: list[str],
     db_path=None,
-    progreso: Optional[ProgressCb] = None,
-    modelo_emb: Optional[str] = None,
-    nombres: Optional[Dict[str, str]] = None,
-    parcial: Optional[Callable[[IndiceHibrido, int, int], None]] = None,
+    progreso: ProgressCb | None = None,
+    modelo_emb: str | None = None,
+    nombres: dict[str, str] | None = None,
+    parcial: Callable[[IndiceHibrido, int, int], None] | None = None,
 ) -> IndiceHibrido:
     """Cada archivo se procesa una sola vez (caché en SQLite por hash del contenido descifrado).
     `nombres` mapea ruta almacenada -> nombre original para citar fuentes. `parcial` recibe un
@@ -169,12 +169,12 @@ def construir_indice_hibrido(
     modelo_emb = modelo_emb or EMBED_MODEL
     progreso = progreso or (lambda p, m: None)
     nombres = nombres or {}
-    todos: List[Chunk] = []
-    vectores: List[np.ndarray] = []
+    todos: list[Chunk] = []
+    vectores: list[np.ndarray] = []
     semantico = True
-    fichas: Set[str] = set()
-    usados: Set[str] = set()
-    errores: List[str] = []
+    fichas: set[str] = set()
+    usados: set[str] = set()
+    errores: list[str] = []
     n = max(1, len(rutas))
 
     for i, ruta in enumerate(rutas):
@@ -247,18 +247,18 @@ _PALABRAS_NO_INFORMATIVAS = {
 _RESUMEN_COMPLETO_RE = re.compile(r"\b(resumen completo|todo el (documento|expediente|contrato))\b", re.I)
 
 
-def _ranking(scores: np.ndarray, n: int) -> List[int]:
+def _ranking(scores: np.ndarray, n: int) -> list[int]:
     orden = np.argsort(-scores)[:n]
     return [int(i) for i in orden if scores[i] > 0]
 
 
 def buscar_hibrido(pregunta: str, indice: IndiceHibrido, top_k: int,
-                   vector_pregunta: Optional[np.ndarray] = None) -> List[Chunk]:
+                   vector_pregunta: np.ndarray | None = None) -> list[Chunk]:
     """BM25 (palabras exactas, nombres, RUT, números) + vectores (significado), fusionados con RRF."""
     if indice.esta_vacio():
         return []
     tokens = tokenizar(pregunta)
-    puntajes: Dict[int, float] = {}
+    puntajes: dict[int, float] = {}
     peso_bm25 = 1.5 if _EXACTO_RE.search(pregunta) else 1.0
 
     if tokens and indice.bm25 is not None:
@@ -278,7 +278,7 @@ def buscar_hibrido(pregunta: str, indice: IndiceHibrido, top_k: int,
     return [indice.chunks[p] for p in mejores]
 
 
-def buscar_todos_relevantes(pregunta: str, indice: IndiceHibrido) -> List[Chunk]:
+def buscar_todos_relevantes(pregunta: str, indice: IndiceHibrido) -> list[Chunk]:
     """Devuelve todos los fragmentos con señal léxica o semántica para una pregunta amplia.
 
     Las consultas como "resume todo el expediente" piden explícitamente el corpus completo;
@@ -307,7 +307,7 @@ def buscar_todos_relevantes(pregunta: str, indice: IndiceHibrido) -> List[Chunk]
     return [chunk for i, chunk in enumerate(indice.chunks) if i in seleccionados]
 
 
-def con_vecinos(fragmentos: List[Chunk], indice: IndiceHibrido) -> List[Chunk]:
+def con_vecinos(fragmentos: list[Chunk], indice: IndiceHibrido) -> list[Chunk]:
     """Agrega el fragmento anterior y el siguiente (salvo en fichas, que ya van completas)."""
     vistos, salida = set(), []
     for frag in fragmentos:
@@ -324,8 +324,8 @@ def con_vecinos(fragmentos: List[Chunk], indice: IndiceHibrido) -> List[Chunk]:
     return salida
 
 
-def limitar_contexto(fragmentos: List[Chunk], originales: List[Chunk],
-                     maximo: int = MAX_CONTEXT_CHARS) -> List[Chunk]:
+def limitar_contexto(fragmentos: list[Chunk], originales: list[Chunk],
+                     maximo: int = MAX_CONTEXT_CHARS) -> list[Chunk]:
     """Prioriza los fragmentos que acertó la búsqueda; los vecinos entran mientras quepan."""
     clave = lambda c: (c.doc_name, c.chunk_index)
     prioridad = {clave(c) for c in originales}
@@ -349,14 +349,14 @@ def parece_seguimiento(pregunta: str) -> bool:
     return len(pregunta.split()) <= 7 or bool(_SEGUIMIENTO_RE.search(pregunta))
 
 
-def _historial_texto(historial: List[dict]) -> str:
+def _historial_texto(historial: list[dict]) -> str:
     return "\n".join(
         f"{'Usuario' if m['role'] == 'user' else 'Asistente'}: {m['content'][:300]}"
         for m in historial[-HISTORY_TURNS * 2:])
 
 
-def reformular_pregunta(pregunta: str, historial: List[dict], modelo: str,
-                        host: Optional[str] = None) -> str:
+def reformular_pregunta(pregunta: str, historial: list[dict], modelo: str,
+                        host: str | None = None) -> str:
     """Convierte '¿y su teléfono?' en una pregunta autónoma. Ante cualquier fallo devuelve la original."""
     if not historial or not parece_seguimiento(pregunta):
         return pregunta
@@ -379,9 +379,9 @@ def reformular_pregunta(pregunta: str, historial: List[dict], modelo: str,
 PROMPT_SISTEMA = prompts.PROMPT_CHAT_CASO
 
 
-def consultar_stream(pregunta: str, fragmentos: List[Chunk], historial: List[dict], modelo: str,
-                     host: Optional[str] = None, opciones: Optional[dict] = None,
-                     sistema: Optional[str] = None) -> Iterator[str]:
+def consultar_stream(pregunta: str, fragmentos: list[Chunk], historial: list[dict], modelo: str,
+                     host: str | None = None, opciones: dict | None = None,
+                     sistema: str | None = None) -> Iterator[str]:
     """Streaming con las últimas vueltas de la conversación para entender el hilo."""
     if not fragmentos:
         yield "No encontré información relevante en los documentos del caso para responder esta pregunta."
@@ -403,7 +403,7 @@ def consultar_stream(pregunta: str, fragmentos: List[Chunk], historial: List[dic
             cerrar()
 
 
-def precargar_modelo(modelo: str, host: Optional[str] = None) -> None:
+def precargar_modelo(modelo: str, host: str | None = None) -> None:
     """Deja el modelo de chat en memoria para que la primera respuesta no espere la carga."""
     if str(rag_core.OLLAMA_KEEP_ALIVE).strip() == "0":
         LOGGER.info("Se omite el precalentamiento de %s porque VEXA_OLLAMA_KEEP_ALIVE=0.", modelo)

@@ -6,7 +6,6 @@ import io
 import logging
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import pdfplumber
 
@@ -22,7 +21,7 @@ _ocr_idioma = None
 TESSERACT_CMD = os.environ.get("VEXA_TESSERACT_CMD") or None
 
 
-def configurar(tesseract_cmd: Optional[str] = None) -> None:
+def configurar(tesseract_cmd: str | None = None) -> None:
     global TESSERACT_CMD, _ocr_estado
     if tesseract_cmd:
         TESSERACT_CMD, _ocr_estado = tesseract_cmd, None
@@ -60,7 +59,7 @@ def _ocr_pagina(datos: bytes, indice0: int) -> str:
     return pytesseract.image_to_string(imagen, lang=_idioma_ocr())
 
 
-def _pdf(datos: bytes) -> List[Dict]:
+def _pdf(datos: bytes) -> list[dict]:
     paginas = []
     with pdfplumber.open(io.BytesIO(datos)) as pdf:
         for i, pagina in enumerate(pdf.pages, start=1):
@@ -84,7 +83,7 @@ def _decodificar(datos: bytes) -> str:
     return datos.decode("latin-1", errors="replace")
 
 
-def _txt(datos: bytes) -> List[Dict]:
+def _txt(datos: bytes) -> list[dict]:
     texto = "\n".join(l.rstrip() for l in _decodificar(datos).splitlines())
     parrafos = [p for p in texto.split("\n\n") if p.strip()]
     paginas, grupo, n = [], [], 0
@@ -98,7 +97,7 @@ def _txt(datos: bytes) -> List[Dict]:
     return paginas
 
 
-def _filas_a_paginas(filas: List[List[str]], prefijo: str, pagina0: int = 1) -> List[Dict]:
+def _filas_a_paginas(filas: list[list[str]], prefijo: str, pagina0: int = 1) -> list[dict]:
     """Primera fila = encabezados. Cada fila pasa a 'Col: valor | Col: valor' y es su propio párrafo."""
     if not filas:
         return []
@@ -114,7 +113,7 @@ def _filas_a_paginas(filas: List[List[str]], prefijo: str, pagina0: int = 1) -> 
             for i in range(0, len(registros), FILAS_POR_PAGINA)]
 
 
-def _csv(datos: bytes) -> List[Dict]:
+def _csv(datos: bytes) -> list[dict]:
     texto = _decodificar(datos)
     try:
         dialecto = csv.Sniffer().sniff(texto[:4096], delimiters=",;\t|")
@@ -123,7 +122,7 @@ def _csv(datos: bytes) -> List[Dict]:
     return _filas_a_paginas(list(csv.reader(io.StringIO(texto), dialecto)), "")
 
 
-def _xlsx(datos: bytes) -> List[Dict]:
+def _xlsx(datos: bytes) -> list[dict]:
     from openpyxl import load_workbook
     libro = load_workbook(io.BytesIO(datos), read_only=True, data_only=True)
     paginas = []
@@ -135,7 +134,7 @@ def _xlsx(datos: bytes) -> List[Dict]:
     return paginas
 
 
-def _pptx(datos: bytes) -> List[Dict]:
+def _pptx(datos: bytes) -> list[dict]:
     from pptx import Presentation
     paginas = []
     for n, diapositiva in enumerate(Presentation(io.BytesIO(datos)).slides, start=1):
@@ -155,7 +154,7 @@ def _pptx(datos: bytes) -> List[Dict]:
     return paginas
 
 
-def extraer(nombre: str, datos: bytes) -> List[Dict]:
+def extraer(nombre: str, datos: bytes) -> list[dict]:
     """Devuelve [{'page_number', 'text'}] según la extensión de `nombre`."""
     ext = Path(nombre).suffix.lower()
     if ext == ".pdf":

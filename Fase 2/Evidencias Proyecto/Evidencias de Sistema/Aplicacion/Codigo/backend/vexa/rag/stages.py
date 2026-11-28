@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Callable, Dict, Iterator, List, Optional
+from collections.abc import Callable, Iterator
+from typing import Any
 
 from vexa.rag import core as rag_core
 from vexa.rag import prompts
@@ -29,8 +30,8 @@ def es_totalidad(pregunta: str) -> bool:
     return bool(_TOTALIDAD_RE.search(pregunta))
 
 
-def _llamar(modelo: str, system: str, user: str, opciones: Optional[Dict[str, Any]] = None,
-            host: Optional[str] = None) -> str:
+def _llamar(modelo: str, system: str, user: str, opciones: dict[str, Any] | None = None,
+            host: str | None = None) -> str:
     r = rag_core.cliente_ollama(host).chat(
         model=modelo, keep_alive=rag_core.OLLAMA_KEEP_ALIVE,
         options={"temperature": 0, "num_predict": 300, **(opciones or {})},
@@ -38,7 +39,7 @@ def _llamar(modelo: str, system: str, user: str, opciones: Optional[Dict[str, An
     return r["message"]["content"].strip()
 
 
-def lotes(chunks: List[Chunk], max_chars: int = MAX_LOTE_CHARS) -> List[List[Chunk]]:
+def lotes(chunks: list[Chunk], max_chars: int = MAX_LOTE_CHARS) -> list[list[Chunk]]:
     grupos, actual, n = [], [], 0
     for c in chunks:
         if actual and (n + len(c.text) > max_chars or actual[-1].doc_name != c.doc_name):
@@ -49,14 +50,14 @@ def lotes(chunks: List[Chunk], max_chars: int = MAX_LOTE_CHARS) -> List[List[Chu
     return grupos
 
 
-def _texto(lote: List[Chunk]) -> str:
+def _texto(lote: list[Chunk]) -> str:
     return "\n\n".join(f"[{c.fuente}]\n{c.text}" for c in lote)
 
 
-def resumir_indice(indice: IndiceDocumental, modelo: str, host: Optional[str] = None,
+def resumir_indice(indice: IndiceDocumental, modelo: str, host: str | None = None,
                    max_lotes: int = MAX_LOTES_RESUMEN,
-                   opciones: Optional[Dict[str, Any]] = None,
-                   antes_de_llamar: Optional[Callable[[], Any]] = None) -> str:
+                   opciones: dict[str, Any] | None = None,
+                   antes_de_llamar: Callable[[], Any] | None = None) -> str:
     """Resumen por lotes. `antes_de_llamar` se ejecuta antes de cada llamada al modelo (el servicio
     de fondo lo usa para ceder el turno a las consultas del chat)."""
     esperar = antes_de_llamar or (lambda: None)
@@ -77,10 +78,10 @@ def resumir_indice(indice: IndiceDocumental, modelo: str, host: Optional[str] = 
 
 
 def responder_por_etapas(pregunta: str, indice: IndiceDocumental, modelo: str,
-                         opciones: Dict[str, Any], max_chars: int,
-                         host: Optional[str] = None,
+                         opciones: dict[str, Any], max_chars: int,
+                         host: str | None = None,
                          max_lotes: int = MAX_LOTES_TOTALIDAD,
-                         chunks: Optional[List[Chunk]] = None) -> Iterator[Dict[str, Any]]:
+                         chunks: list[Chunk] | None = None) -> Iterator[dict[str, Any]]:
     """Eventos: {'type':'progress'}, {'type':'delta'}, {'type':'sources'}.
     Etapa 1: extrae datos de cada bloque. Etapa 2: consolida. Etapa 3: respuesta final en vivo."""
     grupos = lotes(indice.chunks if chunks is None else chunks)

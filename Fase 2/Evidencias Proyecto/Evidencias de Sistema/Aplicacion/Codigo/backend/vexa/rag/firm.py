@@ -6,8 +6,8 @@ Cada fragmento conserva el expediente, el documento y las páginas de origen.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
 
 from vexa.rag import core as rag_core
 from vexa.rag import hybrid as rag_hybrid
@@ -54,9 +54,9 @@ def build_index(documents: Sequence[AuthorizedDocument], db_path=None, progreso=
 
 
 def retrieve(question: str, index: rag_hybrid.IndiceHibrido, cards: Sequence[CaseCard],
-             documents: Sequence[AuthorizedDocument], max_chars: int) -> List[Chunk]:
+             documents: Sequence[AuthorizedDocument], max_chars: int) -> list[Chunk]:
     """Fragmentos relevantes (con vecinos) + fichas de los expedientes involucrados, dentro del presupuesto."""
-    fragments: List[Chunk] = []
+    fragments: list[Chunk] = []
     if not index.esta_vacio():
         top_k = max(6, rag_core.determinar_top_k(question, len(index.chunks)))
         hits = rag_hybrid.buscar_hibrido(question, index, top_k=top_k)
@@ -70,7 +70,7 @@ def retrieve(question: str, index: rag_hybrid.IndiceHibrido, cards: Sequence[Cas
             involved.append(card.case_id)
     card_map = {c.case_id: c for c in cards}
     budget = max(0, max_chars - sum(len(f.text) for f in fragments))
-    extra: List[Chunk] = []
+    extra: list[Chunk] = []
     for case_id in involved[:MAX_CASE_CARDS]:
         chunk = card_map[case_id].chunk() if case_id in card_map else None
         if chunk is not None and (len(chunk.text) <= budget or not fragments):
@@ -80,11 +80,11 @@ def retrieve(question: str, index: rag_hybrid.IndiceHibrido, cards: Sequence[Cas
 
 
 def sources_for(fragments: Sequence[Chunk], documents: Sequence[AuthorizedDocument],
-                cards: Sequence[CaseCard]) -> List[Dict]:
+                cards: Sequence[CaseCard]) -> list[dict]:
     """Referencias verificables: expediente, documento y páginas de cada fragmento usado."""
     docs = {d.label: d for d in documents}
     card_names = {c.doc_name: c for c in cards}
-    seen: Dict[Tuple, Dict] = {}
+    seen: dict[tuple, dict] = {}
     for f in fragments:
         if f.doc_name in docs:
             d = docs[f.doc_name]
@@ -103,7 +103,7 @@ def sources_for(fragments: Sequence[Chunk], documents: Sequence[AuthorizedDocume
     return list(seen.values())
 
 
-def stream_answer(question: str, fragments: Sequence[Chunk], history: List[dict], model: str,
-                  options: Optional[dict] = None):
+def stream_answer(question: str, fragments: Sequence[Chunk], history: list[dict], model: str,
+                  options: dict | None = None):
     return rag_hybrid.consultar_stream(question, list(fragments), history, modelo=model, opciones=options,
                                        sistema=PROMPT_FIRMA)
