@@ -34,8 +34,9 @@ ROLE_PERMISSIONS = {
     "lawyer": frozenset({"cases.view", "documents.view", "documents.download", "cases.add_note", "cases.message"}),
     "chief_lawyer": frozenset({
         "users.manage", "teams.manage", "cases.manage", "cases.view", "documents.view",
-        "documents.download", "documents.upload", "cases.update_progress", "cases.add_note", "cases.message", "permissions.manage", "assistant.use", "assistant.case_access",
-        "assistant.team_access", "assistant.firm_access", "audit.view",
+        "documents.download", "documents.upload", "cases.update_progress", "cases.add_note", "cases.message",
+        "permissions.manage", "assistant.use", "assistant.case_access", "assistant.team_access",
+        "assistant.firm_access", "audit.view",
     }),
     # El administrador tiene todos los permisos funcionales; los datos que ve siguen dependiendo de
     # sus concesiones (la `firm` inicial es revocable).
