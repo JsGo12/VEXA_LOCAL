@@ -63,3 +63,10 @@ def test_context_limit_prioritises_search_hits():
     vecino = _chunk(0, "b" * 3000)
     assert hybrid.limitar_contexto([vecino, acierto], [acierto], maximo=4500) == [acierto]
     assert hybrid.limitar_contexto([vecino, acierto], [acierto], maximo=7000) == [vecino, acierto]
+
+
+def test_follow_up_detection():
+    assert hybrid.parece_seguimiento("¿y su teléfono?")
+    assert hybrid.parece_seguimiento("Entonces, ¿cuál fue la fecha de la audiencia que mencionaste antes?")
+    assert not hybrid.parece_seguimiento(
+        "¿Cuál es la fecha de término del contrato de arriendo firmado en Santiago?")
