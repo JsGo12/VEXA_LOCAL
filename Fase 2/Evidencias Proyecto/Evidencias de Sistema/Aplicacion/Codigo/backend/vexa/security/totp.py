@@ -11,7 +11,6 @@ import hmac
 import secrets
 import struct
 import time
-from typing import Optional
 
 DIGITS = 6
 PERIOD = 30
@@ -35,11 +34,11 @@ def code_at(secret: str, step: int) -> str:
     return str(value % 10 ** DIGITS).zfill(DIGITS)
 
 
-def current_step(now: Optional[float] = None) -> int:
+def current_step(now: float | None = None) -> int:
     return int((time.time() if now is None else now) // PERIOD)
 
 
-def verify(secret: str, code: str, last_step: int = 0, now: Optional[float] = None) -> Optional[int]:
+def verify(secret: str, code: str, last_step: int = 0, now: float | None = None) -> int | None:
     """Devuelve el paso de tiempo del código si es válido y no se usó antes; si no, None.
 
     Guardar el paso devuelto (users.totp_last_step) impide reutilizar el mismo código."""

@@ -13,8 +13,8 @@ import ipaddress
 import logging
 import shutil
 import subprocess
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
 
 from vexa.config import TAILSCALE_V4, TAILSCALE_V6, ConfigError, Settings, is_loopback_host, is_tailscale_address
 
@@ -22,14 +22,14 @@ LOGGER = logging.getLogger(__name__)
 _WINDOWS_TAILSCALE = Path(r"C:\Program Files\Tailscale\tailscale.exe")
 
 
-def tailscale_cli() -> Optional[str]:
+def tailscale_cli() -> str | None:
     found = shutil.which("tailscale")
     if found:
         return found
     return str(_WINDOWS_TAILSCALE) if _WINDOWS_TAILSCALE.is_file() else None
 
 
-def detect_tailscale_ipv4(timeout: float = 5.0) -> Optional[str]:
+def detect_tailscale_ipv4(timeout: float = 5.0) -> str | None:
     """IP 100.x de este equipo según `tailscale ip -4` o, si no hay CLI (contenedor Docker que
     comparte la red de Tailscale), según la interfaz de Tailscale. No envía datos a ningún lado."""
     cli = tailscale_cli()
@@ -45,7 +45,7 @@ def detect_tailscale_ipv4(timeout: float = 5.0) -> Optional[str]:
     return tailscale_interface_ipv4()
 
 
-def tailscale_interface_ipv4(interfaces=None) -> Optional[str]:
+def tailscale_interface_ipv4(interfaces=None) -> str | None:
     """IPv4 100.x de una interfaz llamada «tailscale…» (tailscale0 en Linux, «Tailscale» en Windows).
 
     Se exige el nombre de la interfaz además del rango: 100.64.0.0/10 también es el rango CGNAT de
@@ -66,7 +66,7 @@ def tailscale_interface_ipv4(interfaces=None) -> Optional[str]:
     return None
 
 
-def listen_addresses(settings: Settings, detect=detect_tailscale_ipv4) -> List[Tuple[str, int]]:
+def listen_addresses(settings: Settings, detect=detect_tailscale_ipv4) -> list[tuple[str, int]]:
     """Pares (host, puerto) donde escuchará Waitress. Valida todo antes de abrir sockets."""
     if not is_loopback_host(settings.host):
         raise ConfigError("VEXA_HOST debe ser una dirección de loopback.")
@@ -86,7 +86,7 @@ def listen_addresses(settings: Settings, detect=detect_tailscale_ipv4) -> List[T
     return listeners
 
 
-def format_listen(listeners: Iterable[Tuple[str, int]]) -> str:
+def format_listen(listeners: Iterable[tuple[str, int]]) -> str:
     """Formato del parámetro `listen` de Waitress (IPv6 entre corchetes)."""
     parts = []
     for host, port in listeners:
@@ -94,7 +94,7 @@ def format_listen(listeners: Iterable[Tuple[str, int]]) -> str:
     return " ".join(parts)
 
 
-def trusted_hosts(settings: Settings, listeners: Iterable[Tuple[str, int]]) -> List[str]:
+def trusted_hosts(settings: Settings, listeners: Iterable[tuple[str, int]]) -> list[str]:
     hosts = {"127.0.0.1", "localhost", "::1", "[::1]"}
     for host, _port in listeners:
         hosts.add(host)
@@ -113,7 +113,7 @@ class RemoteAddressFilter:
         self.wsgi_app = wsgi_app
         self.allow_tailscale = allow_tailscale
 
-    def allowed(self, remote: Optional[str]) -> bool:
+    def allowed(self, remote: str | None) -> bool:
         if not remote:
             return False
         try:

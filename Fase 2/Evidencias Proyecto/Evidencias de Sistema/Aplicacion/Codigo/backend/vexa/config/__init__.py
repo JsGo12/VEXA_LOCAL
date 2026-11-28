@@ -12,9 +12,9 @@ from __future__ import annotations
 import ipaddress
 import os
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Mapping, Optional
 from urllib.parse import urlparse
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]          # Codigo/backend
@@ -47,19 +47,19 @@ class Settings:
     data_dir: Path = DEFAULT_DATA_DIR
     db_path: Path = DEFAULT_DATA_DIR / "vexa_web.db"
     watch_dir: Path = DEFAULT_DATA_DIR / "carpeta_vigilada"
-    secret_key: Optional[str] = _secret_field(default=None)
+    secret_key: str | None = _secret_field(default=None)
     session_cookie_secure: bool = False
     ollama_host: str = "http://127.0.0.1:11434"
-    chat_model: Optional[str] = None
+    chat_model: str | None = None
     embed_model: str = "bge-m3"
     ollama_keep_alive: str = "5m"
-    tesseract_cmd: Optional[str] = None
+    tesseract_cmd: str | None = None
     admin_username: str = "admin"
-    admin_password: Optional[str] = _secret_field(default=None)
+    admin_password: str | None = _secret_field(default=None)
     tailscale_enabled: bool = False
-    tailscale_bind_address: Optional[str] = None
-    tailscale_port: Optional[int] = None
-    tailscale_host: Optional[str] = None
+    tailscale_bind_address: str | None = None
+    tailscale_port: int | None = None
+    tailscale_host: str | None = None
     max_file_size: int = 30 * 1024 * 1024
     # Días que se conserva el registro de auditoría (0 = no se borra nunca).
     audit_retention_days: int = 14
@@ -69,7 +69,7 @@ class Settings:
     backup_dir: Path = Path.home() / "VEXA_respaldos"
     backup_hours: int = 24
     backup_keep: int = 7
-    env_file: Optional[Path] = None
+    env_file: Path | None = None
 
     @property
     def upload_dir(self) -> Path:
@@ -110,7 +110,7 @@ def read_env_file(path: Path) -> dict[str, str]:
     return {k: v for k, v in dotenv_values(path, interpolate=False).items() if v is not None}
 
 
-def _bool(name: str, raw: Optional[str], default: bool) -> bool:
+def _bool(name: str, raw: str | None, default: bool) -> bool:
     if raw is None:
         return default
     value = raw.strip().lower()
@@ -121,7 +121,7 @@ def _bool(name: str, raw: Optional[str], default: bool) -> bool:
     raise ConfigError(f"{name} debe ser true o false.")
 
 
-def _int(name: str, raw: Optional[str], default: Optional[int], lo: int, hi: int) -> Optional[int]:
+def _int(name: str, raw: str | None, default: int | None, lo: int, hi: int) -> int | None:
     if raw is None or not raw.strip():
         return default
     try:
@@ -150,7 +150,7 @@ def is_tailscale_address(host: str) -> bool:
     return ip in (TAILSCALE_V4 if ip.version == 4 else TAILSCALE_V6)
 
 
-def load_settings(environ: Optional[Mapping[str, str]] = None, env_file: Optional[Path] = None,
+def load_settings(environ: Mapping[str, str] | None = None, env_file: Path | None = None,
                   use_env_file: bool = True) -> Settings:
     """Construye y valida la configuración. Lanza ConfigError con un mensaje accionable."""
     process_env = dict(os.environ if environ is None else environ)
@@ -163,7 +163,7 @@ def load_settings(environ: Optional[Mapping[str, str]] = None, env_file: Optiona
                 break
     merged = {**file_values, **process_env}           # el entorno del proceso tiene prioridad
 
-    def get(name: str) -> Optional[str]:
+    def get(name: str) -> str | None:
         value = merged.get(name)
         return value.strip() if isinstance(value, str) else value
 

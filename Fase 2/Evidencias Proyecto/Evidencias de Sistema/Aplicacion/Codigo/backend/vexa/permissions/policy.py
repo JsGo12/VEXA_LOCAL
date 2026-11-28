@@ -31,7 +31,7 @@ Acceso a un documento (en este orden; la primera regla que aplica decide):
 from __future__ import annotations
 
 import sqlite3
-from typing import Dict, Iterable, List, Mapping, Optional, Set
+from collections.abc import Iterable, Mapping
 
 from vexa.permissions.catalog import PERMISSIONS, ROLE_PERMISSIONS, ROLES_ASSIGNABLE_BY
 
@@ -50,12 +50,12 @@ def _uid(user) -> int:
 
 
 # -------------------------------------------------------------- permisos funcionales
-def permission_overrides(db: sqlite3.Connection, user_id: int) -> Dict[str, str]:
+def permission_overrides(db: sqlite3.Connection, user_id: int) -> dict[str, str]:
     rows = db.execute("SELECT permission, effect FROM user_permissions WHERE user_id = ?", (user_id,)).fetchall()
     return {row["permission"]: row["effect"] for row in rows}
 
 
-def effective_permissions(db: sqlite3.Connection, user) -> Set[str]:
+def effective_permissions(db: sqlite3.Connection, user) -> set[str]:
     if user is None:
         return set()
     granted = set(ROLE_PERMISSIONS.get(user["role"], frozenset()))
@@ -70,12 +70,12 @@ def has_permission(db: sqlite3.Connection, user, permission: str) -> bool:
 
 
 # ------------------------------------------------------------------ alcance de datos
-def case_scope(db: sqlite3.Connection, user) -> Dict[int, Set[str]]:
+def case_scope(db: sqlite3.Connection, user) -> dict[int, set[str]]:
     """{case_id: {vías de acceso}} para todos los expedientes del alcance del usuario."""
     if user is None:
         return {}
     uid = _uid(user)
-    scope: Dict[int, Set[str]] = {}
+    scope: dict[int, set[str]] = {}
 
     def add(rows: Iterable, via: str) -> None:
         for row in rows:
@@ -101,14 +101,14 @@ def case_scope(db: sqlite3.Connection, user) -> Dict[int, Set[str]]:
 
 
 # ------------------------------------------------------------ abogados a cargo del jefe
-def supervised_lawyer_ids(db: sqlite3.Connection, chief_id: int) -> Set[int]:
+def supervised_lawyer_ids(db: sqlite3.Connection, chief_id: int) -> set[int]:
     """Abogados activos que el administrador asignó a este abogado jefe."""
     return {int(r[0]) for r in db.execute(
         """SELECT s.lawyer_id FROM chief_lawyers s JOIN users u ON u.id = s.lawyer_id
            WHERE s.chief_id = ? AND u.active = 1 AND u.role = 'lawyer'""", (chief_id,))}
 
 
-def manageable_people(db: sqlite3.Connection, actor) -> List[sqlite3.Row]:
+def manageable_people(db: sqlite3.Connection, actor) -> list[sqlite3.Row]:
     """Personas a las que el actor puede asignar casos o incluir en equipos."""
     if actor["role"] == "admin":
         return db.execute("SELECT id, name, username, role FROM users WHERE active = 1 AND role IN "
@@ -119,7 +119,7 @@ def manageable_people(db: sqlite3.Connection, actor) -> List[sqlite3.Row]:
                       (_uid(actor),)).fetchall()
 
 
-def _team_member_ids(db: sqlite3.Connection, team_id: int) -> Set[int]:
+def _team_member_ids(db: sqlite3.Connection, team_id: int) -> set[int]:
     return {int(r[0]) for r in db.execute("SELECT user_id FROM team_members WHERE team_id = ?", (team_id,))}
 
 
@@ -131,7 +131,7 @@ def team_is_manageable(db: sqlite3.Connection, actor, team_id: int) -> bool:
     return bool(members) and members <= supervised_lawyer_ids(db, _uid(actor))
 
 
-def case_paths(db: sqlite3.Connection, user, case_id: int) -> Set[str]:
+def case_paths(db: sqlite3.Connection, user, case_id: int) -> set[str]:
     return case_scope(db, user).get(int(case_id), set())
 
 
@@ -165,7 +165,7 @@ def document_allowed(db: sqlite3.Connection, user, document, permission: str = "
     return _document_rule(db, _uid(user), document)
 
 
-def visible_documents(db: sqlite3.Connection, user, case_id: int) -> List[sqlite3.Row]:
+def visible_documents(db: sqlite3.Connection, user, case_id: int) -> list[sqlite3.Row]:
     """Documentos del caso que el usuario puede leer (vacío si no tiene documents.view)."""
     if not has_permission(db, user, "documents.view") or not case_paths(db, user, case_id):
         return []
@@ -174,19 +174,19 @@ def visible_documents(db: sqlite3.Connection, user, case_id: int) -> List[sqlite
     return [row for row in rows if _document_rule(db, uid, row)]
 
 
-def unrestricted_documents(db: sqlite3.Connection, case_id: int) -> List[sqlite3.Row]:
+def unrestricted_documents(db: sqlite3.Connection, case_id: int) -> list[sqlite3.Row]:
     """Documentos sin restricción: base común para el índice de fondo y el resumen automático."""
     return db.execute("SELECT * FROM documents WHERE case_id = ? AND restricted = 0 ORDER BY id",
                       (case_id,)).fetchall()
 
 
 # ------------------------------------------------------------- asistente transversal
-def assistant_scope(db: sqlite3.Connection, user) -> Dict[int, Set[str]]:
+def assistant_scope(db: sqlite3.Connection, user) -> dict[int, set[str]]:
     """Expedientes que el asistente puede consultar: alcance de datos filtrado por assistant.*."""
     perms = effective_permissions(db, user)
     if "assistant.use" not in perms or "documents.view" not in perms:
         return {}
-    result: Dict[int, Set[str]] = {}
+    result: dict[int, set[str]] = {}
     for case_id, vias in case_scope(db, user).items():
         allowed = {v for v in vias if ASSISTANT_PATH_PERMISSION.get(v) in perms}
         if allowed:
@@ -220,7 +220,7 @@ def check_can_manage_user(db: sqlite3.Connection, actor, target_id: int):
     return target
 
 
-def check_supervision(db: sqlite3.Connection, actor, chief_id: int, lawyer_ids: Iterable[int]) -> List[int]:
+def check_supervision(db: sqlite3.Connection, actor, chief_id: int, lawyer_ids: Iterable[int]) -> list[int]:
     """Solo el administrador asigna abogados a un abogado jefe. Devuelve los ids válidos."""
     if actor["role"] != "admin":
         raise PolicyError("Solo un administrador asigna abogados a un abogado jefe.")
@@ -238,7 +238,7 @@ def check_supervision(db: sqlite3.Connection, actor, chief_id: int, lawyer_ids: 
     return valid
 
 
-def check_team_members(db: sqlite3.Connection, actor, member_ids: Iterable[int], team_id: Optional[int] = None) -> None:
+def check_team_members(db: sqlite3.Connection, actor, member_ids: Iterable[int], team_id: int | None = None) -> None:
     """El jefe solo arma equipos con sus abogados y solo edita equipos formados por ellos."""
     if actor["role"] == "admin":
         return
@@ -286,7 +286,7 @@ def check_permission_override(db: sqlite3.Connection, actor, target_id: int, per
     return target
 
 
-def check_scope_grant(db: sqlite3.Connection, actor, target_id: int, scope_type: str, scope_id: Optional[int]):
+def check_scope_grant(db: sqlite3.Connection, actor, target_id: int, scope_type: str, scope_id: int | None):
     if not has_permission(db, actor, "permissions.manage"):
         raise PolicyError("No tienes permiso para administrar permisos.")
     target = check_can_manage_user(db, actor, target_id)
@@ -313,7 +313,7 @@ def check_scope_grant(db: sqlite3.Connection, actor, target_id: int, scope_type:
     return target
 
 
-def check_document_acl(db: sqlite3.Connection, actor, document_id: int, target_id: Optional[int]):
+def check_document_acl(db: sqlite3.Connection, actor, document_id: int, target_id: int | None):
     if not has_permission(db, actor, "permissions.manage"):
         raise PolicyError("No tienes permiso para administrar permisos.")
     document = db.execute("SELECT * FROM documents WHERE id = ?", (document_id,)).fetchone()

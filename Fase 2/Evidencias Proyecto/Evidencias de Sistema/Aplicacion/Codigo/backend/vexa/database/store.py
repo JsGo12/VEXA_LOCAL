@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import sqlite3
 import time
-from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -70,7 +69,7 @@ def init(db_path) -> None:
 
 
 # ---------------------------------------------------------------- fragmentos
-def load_chunks(db_path, doc_sha: str, chunker: str) -> Optional[List[Tuple]]:
+def load_chunks(db_path, doc_sha: str, chunker: str) -> list[tuple] | None:
     with connect(db_path) as db:
         rows = db.execute(
             "SELECT idx, page, page_end, text FROM doc_chunks "
@@ -78,7 +77,7 @@ def load_chunks(db_path, doc_sha: str, chunker: str) -> Optional[List[Tuple]]:
     return [(r["idx"], r["page"], r["page_end"], vault.dec_text(r["text"])) for r in rows] or None
 
 
-def save_chunks(db_path, doc_sha: str, chunker: str, rows: List[Tuple]) -> None:
+def save_chunks(db_path, doc_sha: str, chunker: str, rows: list[tuple]) -> None:
     with connect(db_path) as db:
         db.execute("DELETE FROM doc_chunks WHERE doc_sha=? AND chunker=?", (doc_sha, chunker))
         db.execute("DELETE FROM doc_embeddings WHERE doc_sha=? AND chunker=?", (doc_sha, chunker))
@@ -117,7 +116,7 @@ def add_message(db_path, case_id: int, user_id: int, role: str, content: str, so
             (case_id, user_id, role, vault.enc_text(content), vault.enc_text(" | ".join(sources or []))))
 
 
-def recent_messages(db_path, case_id: int, user_id: int, limit: int = 6) -> List[dict]:
+def recent_messages(db_path, case_id: int, user_id: int, limit: int = 6) -> list[dict]:
     with connect(db_path) as db:
         rows = db.execute(
             "SELECT role, content, sources FROM chat_messages WHERE case_id=? AND user_id=? "

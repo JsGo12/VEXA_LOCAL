@@ -10,7 +10,6 @@ from __future__ import annotations
 import os
 import secrets
 from pathlib import Path
-from typing import Optional
 
 from vexa.security import vault
 
@@ -23,7 +22,7 @@ def _write(path: Path, value: str) -> None:
     os.replace(tmp, path)
 
 
-def load_session_secret(data_dir: Path, configured: Optional[str] = None) -> str:
+def load_session_secret(data_dir: Path, configured: str | None = None) -> str:
     if configured:
         return configured
     path = Path(data_dir) / SECRET_FILE

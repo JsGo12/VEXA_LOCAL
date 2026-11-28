@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
 
 from vexa.database import store
 
@@ -343,7 +343,7 @@ def _m10_settings_and_two_factor(db: sqlite3.Connection) -> None:
         db.execute("ALTER TABLE users ADD COLUMN totp_last_step INTEGER NOT NULL DEFAULT 0")
 
 
-MIGRATIONS: List[Tuple[int, str, Callable[[sqlite3.Connection], None]]] = [
+MIGRATIONS: list[tuple[int, str, Callable[[sqlite3.Connection], None]]] = [
     (1, "cases.summary", _m1_case_summary),
     (2, "rol chief_lawyer en users", _m2_chief_lawyer_role),
     (3, "permisos, auditoría y asistente", _m3_permissions_audit_assistant),
@@ -380,7 +380,7 @@ def current_version(db_path: Path) -> int:
         return db.execute("PRAGMA user_version").fetchone()[0]
 
 
-def migrate(db_path: Path, backups_dir: Optional[Path] = None) -> Optional[Path]:
+def migrate(db_path: Path, backups_dir: Path | None = None) -> Path | None:
     """Crea/actualiza el esquema. Devuelve la ruta del respaldo previo, si se hizo uno."""
     db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
