@@ -72,7 +72,8 @@ Requisitos: Windows 10/11 de 64 bits, Python 3, Node.js LTS y [Ollama](https://o
 ollama pull llama3.2:1b
 ollama pull bge-m3
 
-# 2. Desde la carpeta Codigo: entorno y dependencias
+# 2. Desde la carpeta de la aplicación: entorno y dependencias
+cd "Fase 2\Evidencias Proyecto\Evidencias de Sistema\Aplicacion\Codigo"
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
@@ -89,7 +90,7 @@ corepack pnpm start
 .\.venv\Scripts\python.exe backend\run.py   # http://127.0.0.1:5000
 ```
 
-En el primer inicio se crea el usuario `admin` con una contraseña aleatoria, escrita en `%USERPROFILE%\.vexa_local\credenciales_admin_inicial.txt`. El sistema exige cambiarla al primer ingreso. La guía completa está en [`Codigo/README.md`](Codigo/README.md) y en la carpeta [`Codigo/docs/`](Codigo/docs/).
+En el primer inicio se crea el usuario `admin` con una contraseña aleatoria, escrita en `%USERPROFILE%\.vexa_local\credenciales_admin_inicial.txt`. El sistema exige cambiarla al primer ingreso. La guía completa está en [`Codigo/README.md`](Fase%202/Evidencias%20Proyecto/Evidencias%20de%20Sistema/Aplicacion/Codigo/README.md) y en la carpeta [`Codigo/docs/`](Fase%202/Evidencias%20Proyecto/Evidencias%20de%20Sistema/Aplicacion/Codigo/docs/).
 
 ### Pruebas
 
@@ -128,26 +129,28 @@ Electron (o navegador)  →  Flask + Waitress (127.0.0.1, opcional IP Tailscale)
 | IA | Ollama local | Evita enviar expedientes a servicios externos |
 | Acceso remoto | Tailscale opcional | Red privada cifrada, sin publicar puertos ni usar `0.0.0.0` |
 
-El detalle está en el documento *Arquitectura* y en [`Codigo/docs/arquitectura.md`](Codigo/docs/arquitectura.md).
+El detalle está en el documento *Arquitectura* y en [`Codigo/docs/arquitectura.md`](Fase%202/Evidencias%20Proyecto/Evidencias%20de%20Sistema/Aplicacion/Codigo/docs/arquitectura.md).
 
 ## Estructura del repositorio
 
 ```text
 VEXA_LOCAL/
-├── Codigo/        Aplicación (backend, frontend, Electron, scripts y docs)
 ├── Fase 1/        Evidencias de la Fase 1 (definición del proyecto)
 ├── Fase 2/        Evidencias de la Fase 2 (desarrollo)
 │   ├── Evidencias Grupales/
 │   ├── Evidencias Individuales/
-│   └── Evidencias Proyecto (version Agil)/
+│   └── Evidencias Proyecto/
+│       └── Evidencias de Sistema/
+│           └── Aplicacion/
+│               └── Codigo/   Aplicación (backend, frontend, Electron, scripts y docs)
+├── Fase 3/        Evidencias de la Fase 3 (presentación final)
 ├── historico/     Versión anterior e interfaces antiguas (Tkinter, pywebview), solo referencia
-├── run.py         Atajo: ejecuta Codigo/backend/run.py
 └── README.md
 ```
 
 ## Documentación del proyecto (Fase 2)
 
-Los documentos están en `Fase 2/Evidencias Proyecto (version Agil)/`, salvo que se indique otra ruta.
+Los documentos están en `Fase 2/Evidencias Proyecto/`, salvo que se indique otra ruta.
 
 | Documento | Contenido |
 | --- | --- |
