@@ -53,3 +53,19 @@ def test_ollama_host_gets_scheme_and_must_be_local():
         _load(OLLAMA_HOST="http://10.0.0.5:11434")
     with pytest.raises(config.ConfigError):
         _load(OLLAMA_HOST="ftp://127.0.0.1")
+
+
+def test_short_secrets_are_rejected():
+    with pytest.raises(config.ConfigError):
+        _load(VEXA_SECRET_KEY="corta")
+    with pytest.raises(config.ConfigError):
+        _load(VEXA_ADMIN_PASSWORD="123456")
+    assert _load(VEXA_SECRET_KEY="x" * 32).secret_key == "x" * 32
+
+
+def test_flask_server_is_not_allowed_in_production():
+    with pytest.raises(config.ConfigError):
+        _load(VEXA_ENV="production", VEXA_SERVER="flask")
+    assert _load(VEXA_ENV="production").is_production
+    with pytest.raises(config.ConfigError):
+        _load(VEXA_ENV="staging")
