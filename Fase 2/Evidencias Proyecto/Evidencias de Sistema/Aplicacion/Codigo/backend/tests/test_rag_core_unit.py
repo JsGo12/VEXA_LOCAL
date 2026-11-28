@@ -51,3 +51,10 @@ def test_empty_index_returns_no_context():
     indice = core.construir_indice([])
     assert indice.esta_vacio() and indice.bm25 is None
     assert core.buscar_contexto_relevante("arriendo", indice) == []
+
+
+def test_single_chunk_corpus_uses_lexical_fallback():
+    chunk = _chunk("Contrato de arriendo de oficina en Talca")
+    indice = core.construir_indice([chunk])
+    assert core.buscar_contexto_relevante("¿Cuánto dura el arriendo?", indice) == [chunk]
+    assert core.buscar_contexto_relevante("¿?", indice) == []
