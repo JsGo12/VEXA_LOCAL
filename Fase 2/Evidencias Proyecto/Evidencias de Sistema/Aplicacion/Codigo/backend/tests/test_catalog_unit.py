@@ -13,3 +13,9 @@ def test_roles_are_nested():
     chief = catalog.ROLE_PERMISSIONS["chief_lawyer"]
     admin = catalog.ROLE_PERMISSIONS["admin"]
     assert lawyer <= chief <= admin
+
+
+def test_only_admin_changes_deadlines_and_lawyers_do_not_manage():
+    assert [r for r, p in catalog.ROLE_PERMISSIONS.items() if "cases.set_deadline" in p] == ["admin"]
+    assert not catalog.ROLE_PERMISSIONS["lawyer"] & catalog.MANAGEMENT_PERMISSIONS
+    assert catalog.MANAGEMENT_PERMISSIONS <= set(catalog.PERMISSIONS)
