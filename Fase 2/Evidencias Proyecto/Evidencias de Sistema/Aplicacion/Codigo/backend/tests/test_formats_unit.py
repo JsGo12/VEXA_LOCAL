@@ -28,3 +28,10 @@ def test_rows_are_paged():
 def test_csv_with_semicolons_is_extracted():
     paginas = formats.extraer("datos.CSV", b"Nombre;Ciudad\nAna;Talca\n")
     assert paginas == [{"page_number": 1, "text": "Nombre: Ana | Ciudad: Talca"}]
+
+
+def test_txt_is_split_into_pages_by_paragraphs():
+    texto = "\n\n".join(f"Párrafo {i}" for i in range(formats.LINEAS_POR_PAGINA + 5))
+    paginas = formats.extraer("notas.txt", texto.encode("utf-8"))
+    assert [p["page_number"] for p in paginas] == [1, 2]
+    assert paginas[1]["text"].startswith(f"Párrafo {formats.LINEAS_POR_PAGINA}")
