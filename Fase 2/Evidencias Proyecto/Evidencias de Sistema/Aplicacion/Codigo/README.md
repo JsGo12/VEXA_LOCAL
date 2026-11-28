@@ -55,7 +55,7 @@ En el primer inicio VEXA crea el usuario `admin` y escribe su contraseña aleato
 .\.venv\Scripts\python.exe -m pytest -q backend\tests -k asistente          # por nombre
 ```
 
-La prueba de OCR se omite si Tesseract no está instalado.
+La prueba de OCR se omite si Tesseract no está instalado. Los archivos `test_*_unit.py` prueban funciones puras (configuración, RAG, cifrado, red, permisos y exportaciones) sin levantar la aplicación.
 
 Linter (reglas en `ruff.toml`): `.\.venv\Scripts\python.exe -m ruff check backend`
 
