@@ -100,3 +100,10 @@ def test_secrets_are_hidden_from_repr_and_summary():
     summary = settings.safe_summary()
     assert summary["secret_key"] == "<definida>"
     assert summary["admin_password"] == "<vacía>"
+
+
+def test_derived_paths_follow_data_dir(tmp_path):
+    settings = _load(VEXA_DATA_DIR=str(tmp_path))
+    assert settings.db_path == tmp_path / "vexa_web.db"
+    assert settings.upload_dir == tmp_path / "case_documents"
+    assert settings.backups_dir == tmp_path / "backups"
