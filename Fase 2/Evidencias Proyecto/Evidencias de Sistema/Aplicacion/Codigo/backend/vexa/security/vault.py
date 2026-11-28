@@ -132,9 +132,9 @@ def _write_atomic(path: Path, data: bytes) -> None:
 
 
 def _create_atomic(path: Path, data: bytes) -> None:
-    """Create a key exactly once, even if two VEXA processes start together.
+    """Crea la clave una sola vez, aunque dos procesos de VEXA partan al mismo tiempo.
 
-    Raises FileExistsError if another process won the create race; _get then reloads it.
+    Lanza FileExistsError si otro proceso la creó primero; en ese caso _get vuelve a leerla.
     """
     tmp = _write_temp(path, data)
     try:
