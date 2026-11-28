@@ -50,7 +50,7 @@ def hardware() -> tuple[float | None, float]:
     if shutil.which("nvidia-smi"):
         try:
             out = subprocess.run(["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
-                                 capture_output=True, text=True, timeout=4).stdout
+                                 capture_output=True, text=True, timeout=4, check=False).stdout
             vram = max((float(x) for x in out.split() if x.replace(".", "").isdigit()), default=0) / 1024
         except Exception:
             pass

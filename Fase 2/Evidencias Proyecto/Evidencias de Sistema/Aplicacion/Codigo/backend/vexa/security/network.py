@@ -35,7 +35,7 @@ def detect_tailscale_ipv4(timeout: float = 5.0) -> str | None:
     cli = tailscale_cli()
     if cli:
         try:
-            out = subprocess.run([cli, "ip", "-4"], capture_output=True, text=True, timeout=timeout,
+            out = subprocess.run([cli, "ip", "-4"], capture_output=True, text=True, timeout=timeout, check=False,
                                  creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
         except (OSError, subprocess.SubprocessError):
             out = ""
