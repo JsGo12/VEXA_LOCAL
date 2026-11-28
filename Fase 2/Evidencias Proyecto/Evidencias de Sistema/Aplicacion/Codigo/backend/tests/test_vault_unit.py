@@ -26,3 +26,13 @@ def test_fingerprint_is_short_and_stable():
     huella = vault.key_fingerprint()
     assert len(huella) == 16 and int(huella, 16) >= 0
     assert vault.key_fingerprint(vault.key_bytes()) == huella
+
+
+def test_encrypt_existing_is_idempotent(tmp_path):
+    carpeta = tmp_path / "docs"
+    (carpeta / "sub").mkdir(parents=True)
+    (carpeta / "a.txt").write_bytes(b"uno")
+    (carpeta / "sub" / "b.txt").write_bytes(b"dos")
+    assert vault.encrypt_existing(carpeta) == 2
+    assert vault.encrypt_existing(carpeta) == 0
+    assert vault.read_bytes(carpeta / "sub" / "b.txt") == b"dos"
