@@ -78,7 +78,7 @@ def _get() -> Fernet:
             try:
                 _create_atomic(ruta, protected_key_file(key))
             except FileExistsError:
-                # A second process created the key while this one prepared it.
+                # Otro proceso creó la clave mientras este la preparaba: se usa la suya.
                 key = _unwrap(ruta.read_bytes())
         _key = key
         _fernet = Fernet(key)
