@@ -24,3 +24,15 @@ def test_choice_never_picks_a_heavier_model_than_recommended():
 def test_choice_without_installed_models_uses_the_smallest():
     perfil = model_select.elegir(set(), 64, 12)
     assert perfil == model_select.Perfil(*model_select.NIVELES[-1])
+
+
+def test_forced_model_uses_known_or_default_limits():
+    assert model_select.elegir(set(), 8, 0, forzado="llama3.1:8b").num_ctx == 4096
+    perfil = model_select.elegir(set(), 8, 0, forzado="qwen2.5:7b")
+    assert (perfil.modelo, perfil.num_ctx, perfil.max_chars) == ("qwen2.5:7b", 2048, 4500)
+
+
+def test_installed_model_matches_name_or_tag():
+    assert model_select.modelo_instalado("bge-m3", {"bge-m3:latest"})
+    assert model_select.modelo_instalado("llama3.2:1b", {"llama3.2:1b"})
+    assert not model_select.modelo_instalado("llama3", {"llama3.2:1b"})
