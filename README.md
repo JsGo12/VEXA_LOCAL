@@ -1,5 +1,7 @@
 # VEXA Local
 
+[![Pruebas](https://github.com/JsGo12/VEXA_LOCAL/actions/workflows/pruebas.yml/badge.svg)](https://github.com/JsGo12/VEXA_LOCAL/actions/workflows/pruebas.yml)
+
 **Nombre del proyecto:** Vexa Local — asistente de IA local para consultar expedientes jurídicos con fuentes citadas
 
 **Descripción:** Aplicación de escritorio para Windows que organiza expedientes jurídicos y permite consultarlos con IA generativa que se ejecuta en el propio equipo (Ollama), mediante una arquitectura RAG. Proyecto de Título APT122 (Capstone) — Duoc UC, Ingeniería Informática, sede Alameda.
