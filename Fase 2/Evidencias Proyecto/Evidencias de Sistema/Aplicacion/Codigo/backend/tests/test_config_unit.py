@@ -82,3 +82,13 @@ def test_backup_dir_must_be_outside_data_dir(tmp_path):
         _load(VEXA_DATA_DIR=str(tmp_path), VEXA_BACKUP_DIR=str(tmp_path / "respaldos"))
     settings = _load(VEXA_DATA_DIR=str(tmp_path / "datos"), VEXA_BACKUP_DIR=str(tmp_path / "respaldos"))
     assert settings.backup_dir == tmp_path / "respaldos"
+
+
+def test_tailscale_settings_are_validated():
+    with pytest.raises(config.ConfigError):
+        _load(TAILSCALE_BIND_ADDRESS="0.0.0.0")
+    with pytest.raises(config.ConfigError):
+        _load(TAILSCALE_BIND_ADDRESS="192.168.1.10")
+    with pytest.raises(config.ConfigError):
+        _load(TAILSCALE_HOST="vexa:443")
+    assert _load(TAILSCALE_BIND_ADDRESS="100.70.1.2").tailscale_bind_address == "100.70.1.2"
