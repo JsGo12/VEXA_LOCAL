@@ -66,8 +66,8 @@ def _get() -> Fernet:
             raw = ruta.read_bytes()
             key = _unwrap(raw)
             if not raw.startswith(b"DPAPI:") and sys.platform == "win32":
-                # Keep reading keys created by older versions; on Windows,
-                # upgrade legacy plaintext keys in place when DPAPI works.
+                # Se siguen leyendo las claves de versiones anteriores; en Windows, una clave
+                # antigua en texto plano se protege con DPAPI en el mismo lugar si DPAPI funciona.
                 try:
                     _write_atomic(ruta, b"DPAPI:" + _dpapi(key, True))
                 except Exception:
