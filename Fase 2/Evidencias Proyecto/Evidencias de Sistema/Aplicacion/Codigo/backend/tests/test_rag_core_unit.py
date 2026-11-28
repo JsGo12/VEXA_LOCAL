@@ -15,3 +15,16 @@ def test_chunk_source_label_for_one_or_more_pages():
     assert _chunk("x").fuente == "a.txt — página 1"
     assert _chunk("x", page=2, fin=2).fuente == "a.txt — página 2"
     assert _chunk("x", page=1, fin=3).fuente == "a.txt — páginas 1-3"
+
+
+def test_listing_questions_use_a_larger_top_k():
+    assert core._es_pregunta_de_listado("¿Cuáles son todos los clientes?")
+    assert not core._es_pregunta_de_listado("¿Cuál es el teléfono de Ana?")
+    assert core.determinar_top_k("lista de clientes", 100) == core.TOP_K_FRAGMENTOS_AGREGACION
+    assert core.determinar_top_k("teléfono de Ana", 100) == core.TOP_K_FRAGMENTOS
+
+
+def test_top_k_never_exceeds_available_chunks():
+    assert core.determinar_top_k("lista de clientes", 2) == 2
+    assert core.determinar_top_k("teléfono", 1) == 1
+    assert core.determinar_top_k("teléfono", 0) == 0
