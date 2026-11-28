@@ -13,7 +13,7 @@ from vexa.permissions.catalog import ROLES_ASSIGNABLE_BY
 from vexa.rag import model_select
 from vexa.routes.cases import upload_reply
 from vexa.security import recovery
-from vexa.services import app_settings, audit, backups, exports
+from vexa.services import app_settings, audit, backups, exports, metrics
 from vexa.services import cases as case_service
 from vexa.services import messages as message_service
 from vexa.services import notifications as notification_service
@@ -23,7 +23,7 @@ from vexa.services.audit_view import local_time
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 
-ADMIN_TABS = ("casos", "usuarios", "equipos", "supervision", "modelo", "respaldos")
+ADMIN_TABS = ("casos", "usuarios", "equipos", "supervision", "metricas", "modelo", "respaldos")
 
 
 def _back(tab: str = "casos"):
@@ -82,7 +82,7 @@ def dashboard():
         users = all_users if admin else user_service.list_users(settings.db_path, supervised_by=g.user["id"])
     tabs = [t for t, allowed in (("casos", can("cases.manage")), ("usuarios", can("users.manage")),
                                  ("equipos", can("teams.manage")), ("supervision", admin and can("users.manage")),
-                                 ("modelo", admin), ("respaldos", admin))
+                                 ("metricas", admin), ("modelo", admin), ("respaldos", admin))
             if allowed]
     requested = request.args.get("tab", "")
     return render_template(
@@ -97,6 +97,7 @@ def dashboard():
         supervision=user_service.supervision_map(settings.db_path) if admin else {},
         backup=_backup_info(settings) if admin else None,
         model=_model_info(settings) if admin and requested == "modelo" else None,
+        stats=metrics.firm_metrics(settings.db_path) if admin else None,
         assignable_roles=sorted(ROLES_ASSIGNABLE_BY.get(g.user["role"], frozenset())),
         max_mb=settings.max_file_size // (1024 * 1024),
     )

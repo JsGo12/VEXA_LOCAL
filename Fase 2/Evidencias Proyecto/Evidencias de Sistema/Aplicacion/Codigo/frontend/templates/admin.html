@@ -7,6 +7,7 @@
   'usuarios': ('◉', 'Usuarios', users|length, 'Cuentas, roles y contraseñas'),
   'equipos': ('◎', 'Equipos', teams|length, 'Grupos de abogados'),
   'supervision': ('⚑', 'Supervisión', chiefs|length, 'Abogados a cargo de cada jefe'),
+  'metricas': ('▥', 'Métricas', stats.open if stats else 0, 'Estados, cierres y carga del equipo'),
   'modelo': ('✦', 'Modelo IA', 3, 'Velocidad o calidad del chat'),
   'respaldos': ('⛁', 'Respaldos', (backup.files|length) if backup else 0, 'Copias de seguridad y recuperación'),
 } %}
@@ -149,6 +150,31 @@
 </section>
 {% endif %}
 
+{# ============================================================== MÉTRICAS #}
+{% if 'metricas' in tabs and stats %}
+<section class="admin-panel" id="tab-metricas" role="tabpanel" {% if active_tab != 'metricas' %}hidden{% endif %}>
+  <div class="admin-toolbar">
+    <div><h2>Métricas del estudio</h2><p class="hint">Solo datos de seguimiento (estados, fechas y asignaciones); nunca el contenido de los casos.</p></div>
+  </div>
+  <div class="metric-tiles">
+    <article class="panel metric-tile"><span>Casos abiertos</span><strong>{{ stats.open }}</strong><small>de {{ stats.total }} en total</small></article>
+    <article class="panel metric-tile is-danger"><span>Vencidos</span><strong>{{ stats.overdue }}</strong><small>fecha límite pasada</small></article>
+    <article class="panel metric-tile is-warn"><span>Vencen pronto</span><strong>{{ stats.due_soon }}</strong><small>en los próximos 7 días</small></article>
+    <article class="panel metric-tile"><span>Tiempo promedio de cierre</span><strong>{% if stats.avg_close_days is not none %}{{ stats.avg_close_days }} días{% else %}—{% endif %}</strong><small>{{ stats.closed_count }} caso(s) cerrado(s)</small></article>
+  </div>
+  <div class="metric-grid">
+    <article class="panel metric-card">
+      <h3>Casos por estado</h3>
+      {% for s in stats.by_status %}<div class="metric-row"><span>{{ s.label }}</span><progress max="100" value="{{ s.share }}" class="metric-bar status-{{ s.key }}"></progress><strong>{{ s.count }}</strong></div>{% endfor %}
+    </article>
+    <article class="panel metric-card">
+      <h3>Carga por abogado <small>casos abiertos (los de equipo cuentan para cada integrante)</small></h3>
+      {% for p in stats.workload %}<div class="metric-row"><span>{{ p.name }}</span><progress max="100" value="{{ p.share }}" class="metric-bar"></progress><strong>{{ p.open }}{% if p.overdue %} <em class="metric-late">· {{ p.overdue }} vencido(s)</em>{% endif %}</strong></div>
+      {% else %}<p class="empty-inline">No hay abogados activos.</p>{% endfor %}
+    </article>
+  </div>
+</section>
+{% endif %}
 {# ============================================================= MODELO IA #}
 {% if 'modelo' in tabs %}
 <section class="admin-panel" id="tab-modelo" role="tabpanel" {% if active_tab != 'modelo' %}hidden{% endif %}{% if not model %} data-lazy{% endif %}>
