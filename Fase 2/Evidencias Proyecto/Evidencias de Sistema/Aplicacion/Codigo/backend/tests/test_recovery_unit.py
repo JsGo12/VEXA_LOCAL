@@ -35,3 +35,11 @@ def test_wrong_passphrase_or_foreign_file_is_rejected(tmp_path):
         recovery.load_recovery(tmp_path / "ajeno.bin", FRASE)
     with pytest.raises(recovery.RecoveryError):
         recovery.load_recovery(tmp_path / "no_existe.bin", FRASE)
+
+
+def test_status_reports_export_without_exposing_the_key(tmp_path):
+    assert recovery.status(tmp_path) == {"exported": False}
+    recovery.export_recovery(tmp_path / "copia" / "clave.vexakey", FRASE, data_dir=tmp_path)
+    estado = recovery.status(tmp_path)
+    assert estado["exported"] and estado["matches"]
+    assert vault.key_bytes().decode() not in (tmp_path / recovery.STATUS_FILE).read_text(encoding="utf-8")
