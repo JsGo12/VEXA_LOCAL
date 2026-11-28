@@ -13,6 +13,7 @@ VEXA es una aplicación jurídica **local y privada** para organizar expedientes
 - **Cifrado en reposo** (Fernet + DPAPI) de documentos, historial, fragmentos, vectores y resúmenes.
 - **Roles y permisos granulares** con denegación por defecto: administrador, abogado/a jefe y abogado/a.
 - **Avance de casos** (estado, porcentaje, notas cifradas) y **panel de seguimiento** para el administrador.
+- **Calendario de vencimientos**: vista mensual con las fechas límite de los casos que cada persona puede ver.
 - **Métricas** del estudio para el administrador: casos por estado, vencidos, tiempo promedio de cierre y carga por abogado (Administración > Métricas).
 - **Cuentas**: contraseña temporal obligatoria de cambiar, cambio propio y restablecimiento por el administrador.
 - **Chat por expediente** y **asistente IA transversal** con fuentes verificables (expediente, documento, página).
