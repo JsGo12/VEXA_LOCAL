@@ -4,7 +4,8 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   {% if g.user and config.VEXA_IDLE_SECONDS %}<meta name="csrf-token" content="{{ csrf_token() }}"><meta name="vexa-idle-seconds" content="{{ config.VEXA_IDLE_SECONDS }}" data-ping-url="{{ url_for('system.keep_session_alive') }}" data-expire-url="{{ url_for('system.expire_session') }}" data-login-url="{{ url_for('auth.login') }}">{% endif %}
   <title>{% block title %}VEXA · Estudio jurídico{% endblock %}</title>
-  <link rel="icon" href="{{ url_for('static', filename='img/icon_square.png') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/vexa-app.svg') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/icon_square.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
   {% block styles %}{% endblock %}
@@ -13,7 +14,7 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="{{ url_for('auth.index') }}"><span class="brand-mark">V</span><span>VEXA <small>ESTUDIO JURÍDICO</small></span></a>
+    <a class="brand" href="{{ url_for('auth.index') }}"><img class="brand-logo brand-logo-dark" src="{{ url_for('static', filename='img/vexa-icon.svg') }}" alt=""><img class="brand-logo brand-logo-light" src="{{ url_for('static', filename='img/vexa-icon-azul.svg') }}" alt=""><span>VEXA <small>LOCAL</small></span></a>
     {% if not g.user %}<button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false" title="Cambiar tema"><span data-theme-icon aria-hidden="true">☀</span></button>{% endif %}
     {% if g.user %}
     <nav class="main-nav" aria-label="Navegación principal">

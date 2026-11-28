@@ -1,3 +1,5 @@
+<p align="center"><img src="Fase%202/Evidencias%20Proyecto/Evidencias%20de%20Sistema/Aplicacion/Codigo/frontend/static/img/logo.png" alt="VEXA Local" width="420"></p>
+
 # VEXA Local
 
 [![Pruebas](https://github.com/JsGo12/VEXA_LOCAL/actions/workflows/pruebas.yml/badge.svg)](https://github.com/JsGo12/VEXA_LOCAL/actions/workflows/pruebas.yml)

@@ -47,6 +47,9 @@ html[data-theme="light"] .avatar { background: #dcf3e8; color: #1d6b48; }
 html[data-theme="light"] .avatar-team { background: #e7e5fb; color: #4a43a6; }
 
 /* ------------------------------------------------------------------- botones */
+html[data-theme="light"] .brand-logo-dark { display: none; }
+html[data-theme="light"] .brand-logo-light { display: block; }
+html[data-theme="light"] .brand small { color: #2a4bd7; }
 html[data-theme="light"] .button-secondary { color: var(--accent-soft); background: #eef0ff; border-color: #c9ccfb; }
 html[data-theme="light"] .button-quiet { color: var(--muted); border-color: var(--line); }
 html[data-theme="light"] .action-btn { color: var(--accent-soft); background: #eef0ff; border-color: #c9ccfb; }

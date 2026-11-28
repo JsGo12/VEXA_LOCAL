@@ -311,3 +311,10 @@ html[data-theme="light"] .idle-banner { background: #fff8e6; color: #7a5200; bor
   .calendar-day { min-height: 0; }
   .calendar-day:not(.has-cases):not(.is-today) { display: none; }
 }
+
+/* Logo grande en el inicio de sesión (img/vexa-icon*.svg) */
+.auth-logo { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+.auth-logo img { width: 58px; height: 58px; }
+.auth-logo strong { display: block; font: 800 30px/1 Manrope, 'Segoe UI', sans-serif; letter-spacing: .1em; }
+.auth-logo small { display: block; margin-top: 6px; color: #8fb0ff; font: 700 11px 'DM Sans', sans-serif; letter-spacing: .5em; }
+html[data-theme="light"] .auth-logo small { color: #2a4bd7; }

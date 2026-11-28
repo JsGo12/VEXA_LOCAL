@@ -158,8 +158,13 @@ async function waitForBackend(port, timeoutMs = 60000) {
   throw new Error('El servicio local no respondió dentro del tiempo esperado.');
 }
 
+// Ícono de la ventana en desarrollo (el instalador ya lo trae en el .exe, ver package.json > build.icon).
+const windowIcon = path.join(projectRoot, 'frontend', 'static', 'img', 'icon.ico');
+
 function createWindow(portOrOrigin) {
   mainWindow = new BrowserWindow({
+    ...(fs.existsSync(windowIcon) ? { icon: windowIcon } : {}),
+    title: 'VEXA Local',
     width: 1440,
     height: 920,
     minWidth: 1040,
