@@ -30,3 +30,11 @@ def test_filter_answers_403_before_reaching_the_app():
     cuerpo = filtro({"REMOTE_ADDR": "8.8.8.8"}, lambda status, headers: estados.append(status))
     assert estados == ["403 Forbidden"] and not llamado
     assert b"Acceso denegado" in cuerpo[0]
+
+
+def test_tailscale_interface_requires_its_name():
+    from types import SimpleNamespace
+    addr = [SimpleNamespace(address="100.70.0.1")]
+    assert network.tailscale_interface_ipv4({"eth0": addr}) is None
+    assert network.tailscale_interface_ipv4({"Tailscale": addr}) == "100.70.0.1"
+    assert network.tailscale_interface_ipv4({"tailscale0": [SimpleNamespace(address="fd7a:115c:a1e0::1")]}) is None
