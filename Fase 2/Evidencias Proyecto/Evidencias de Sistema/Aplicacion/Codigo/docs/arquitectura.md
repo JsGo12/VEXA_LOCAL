@@ -29,11 +29,11 @@ Todo el procesamiento documental y de IA ocurre en el equipo servidor. `OLLAMA_H
 |---|---|
 | `config/` | Lee `.env` + entorno, valida y produce un `Settings` inmutable. Rechaza `0.0.0.0`, Ollama remoto, etc. |
 | `database/` | `connect()` común (FK, WAL, cierre automático), `migrations.py` (esquema versionado con `PRAGMA user_version` y respaldo previo) y `store.py` (caché de fragmentos/embeddings, historial del chat por caso, resúmenes, bloqueo de login). |
-| `security/` | `vault.py` (cifrado Fernet; clave en `vault.key` protegida con DPAPI), `session_secret.py` (clave de sesión de Flask, independiente), `http.py` (CSRF, cabeceras), `network.py` (direcciones de escucha, Tailscale, filtro de origen). |
+| `security/` | `vault.py` (cifrado Fernet; clave en `vault.key` protegida con DPAPI), `session_secret.py` (clave de sesión de Flask, independiente), `http.py` (CSRF, cabeceras, cierre por inactividad), `network.py` (direcciones de escucha, Tailscale, filtro de origen), `totp.py` (códigos del doble factor, RFC 6238), `recovery.py` (clave de recuperación). |
 | `permissions/` | `catalog.py` (roles y permisos), `policy.py` (motor de autorización sin Flask) y `__init__.py` (decoradores `login_required`, `permission_required`, guardas `require_case`, `require_document`). |
-| `services/` | Lógica de negocio sin presentación: `users`, `cases`, `indexing` (`CaseIndexer`: cachés e indexación de fondo), `assistant` (`FirmAssistant`), `audit`, `watcher`, `background`. |
+| `services/` | Lógica de negocio sin presentación: `users`, `cases`, `indexing` (`CaseIndexer`: cachés e indexación de fondo), `assistant` (`FirmAssistant`), `audit` y `audit_view` (frases legibles), `app_settings` (modelo de chat elegido en la app), `backups`, `notifications`, `messages`, `llm_priority`, `exports`, `watcher`, `background`. |
 | `rag/` | Motor RAG: `core` (Chunk, BM25, prompt, cliente Ollama), `hybrid` (cláusulas, embeddings, RRF, memoria), `stages` (map-reduce y resúmenes), `firm` (recuperación multi-expediente), `formats` (PDF/OCR, DOCX, XLSX, PPTX, TXT, CSV), `model_select`. |
-| `routes/` | Blueprints delgados: validan la petición, llaman a `permissions` y `services`, y devuelven HTML/JSON/NDJSON. |
+| `routes/` | Blueprints delgados: validan la petición, llaman a `permissions` y `services`, y devuelven HTML/JSON/NDJSON. `streaming.py` (no es blueprint) reúne lo común del chat y el asistente: eventos NDJSON, estado de Ollama y mensajes de error. |
 | `server.py` | Waitress (o el servidor de desarrollo), bloqueo de instancia única y `server.json`. |
 
 Dependencias permitidas (sin ciclos, verificadas por `test_every_backend_module_imports_without_cycles`):
