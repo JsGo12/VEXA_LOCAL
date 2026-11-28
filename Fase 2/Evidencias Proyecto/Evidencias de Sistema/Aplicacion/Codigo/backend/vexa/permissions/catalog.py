@@ -42,8 +42,9 @@ ROLE_PERMISSIONS = {
     # sus concesiones (la `firm` inicial es revocable).
     "admin": frozenset({
         "users.manage", "teams.manage", "cases.manage", "cases.set_deadline", "cases.view", "documents.view",
-        "documents.download", "documents.upload", "cases.update_progress", "cases.add_note", "cases.message", "permissions.manage", "assistant.use",
-        "assistant.case_access", "assistant.team_access", "assistant.firm_access", "audit.view",
+        "documents.download", "documents.upload", "cases.update_progress", "cases.add_note", "cases.message",
+        "permissions.manage", "assistant.use", "assistant.case_access", "assistant.team_access",
+        "assistant.firm_access", "audit.view",
     }),
 }
 
