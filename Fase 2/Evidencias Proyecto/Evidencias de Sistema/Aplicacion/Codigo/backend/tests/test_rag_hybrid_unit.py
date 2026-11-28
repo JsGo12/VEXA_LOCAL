@@ -70,3 +70,13 @@ def test_follow_up_detection():
     assert hybrid.parece_seguimiento("Entonces, ¿cuál fue la fecha de la audiencia que mencionaste antes?")
     assert not hybrid.parece_seguimiento(
         "¿Cuál es la fecha de término del contrato de arriendo firmado en Santiago?")
+
+
+def test_history_text_keeps_last_turns_and_truncates():
+    historial = [{"role": "user" if i % 2 == 0 else "assistant", "content": f"m{i} " + "x" * 400}
+                 for i in range(10)]
+    lineas = hybrid._historial_texto(historial).splitlines()
+    assert len(lineas) == hybrid.HISTORY_TURNS * 2
+    assert lineas[0].startswith("Usuario: m4")
+    assert lineas[-1].startswith("Asistente: m9")
+    assert all(len(linea) <= len("Asistente: ") + 300 for linea in lineas)
