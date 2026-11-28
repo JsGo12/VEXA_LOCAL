@@ -287,3 +287,27 @@ html[data-theme="light"] .sources .source-link:hover { color: #0b6b70; }
 /* Aviso de cierre por inactividad (static/js/idle.js) */
 .idle-banner { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 14px; max-width: calc(100vw - 32px); padding: 12px 16px; border: 1px solid #f5d89955; border-radius: 12px; background: #2a2416; color: #f5d899; font-size: 12px; box-shadow: 0 12px 34px #0006; }
 html[data-theme="light"] .idle-banner { background: #fff8e6; color: #7a5200; border-color: #e7c873; }
+
+/* Calendario de vencimientos (templates/calendar.html). Usa --deadline de .deadline-* */
+.calendar-nav { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
+.calendar-nav h2 { margin: 0; min-width: 170px; text-align: center; font: 700 17px Manrope, sans-serif; }
+.calendar-nav .text-link { margin: 0 0 0 auto; }
+.calendar { padding: 8px; overflow: hidden; }
+.calendar-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.calendar-row + .calendar-row { margin-top: 6px; }
+.calendar-head div { padding: 4px 6px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.calendar-day { min-height: 92px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; display: grid; align-content: start; gap: 4px; }
+.calendar-day.is-empty { border-color: transparent; }
+.calendar-day.is-today { border-color: #7779f7; box-shadow: inset 0 0 0 1px #7779f744; }
+.calendar-date { font-size: 11px; color: var(--muted); font-weight: 700; }
+.calendar-day.is-today .calendar-date { color: #b8b8ff; }
+.calendar-case { display: block; padding: 3px 6px; border-left: 3px solid var(--deadline, var(--line)); border-radius: 4px; font-size: 10px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calendar-case:hover { filter: brightness(1.25); }
+.calendar-case small { color: var(--muted); font-size: 9px; }
+.calendar-legend { display: inline-block; margin-right: 12px; padding: 2px 8px; border-left: 3px solid var(--deadline, var(--line)); border-radius: 4px; }
+@media (max-width: 720px) {
+  .calendar-head { display: none; }
+  .calendar-row { grid-template-columns: 1fr; }
+  .calendar-day { min-height: 0; }
+  .calendar-day:not(.has-cases):not(.is-today) { display: none; }
+}
