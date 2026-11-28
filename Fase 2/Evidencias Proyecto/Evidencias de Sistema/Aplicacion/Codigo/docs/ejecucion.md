@@ -101,6 +101,17 @@ Crea `desktop\backend\.venv`, empaqueta `backend\run.py` con PyInstaller (`VexaB
 
 Cierra VEXA y elimina `%USERPROFILE%\.vexa_local` (o tu `VEXA_DATA_DIR`). Se borran base, documentos, índices y claves de forma irreversible; haz antes un respaldo ([respaldos.md](respaldos.md)).
 
+## 9. Datos de demostración (presentación)
+
+Para mostrar VEXA sin preparar nada a mano, crea una instalación aparte con datos **ficticios**: cinco cuentas (administrador, abogada jefa y tres abogados), un equipo, seis casos con documentos y plazos variados (vencido, por vencer, al día y cerrado), avances, notas y mensajes.
+
+```powershell
+.\.venv\Scripts\python.exe backend\scripts\datos_demo.py C:\VEXA_demo
+$env:VEXA_DATA_DIR = 'C:\VEXA_demo'; .\.venv\Scripts\python.exe backend\run.py
+```
+
+Todas las cuentas (`admin`, `jefa`, `luis`, `ana`, `pedro`) usan la contraseña `Demo-VEXA-2026`. El script **solo escribe en una carpeta nueva**: si ya tiene archivos, se detiene sin tocar nada, así que no puede mezclarse con los datos reales de `%USERPROFILE%\.vexa_local`. Para volver a los datos reales, cierra VEXA y abre una consola nueva (sin `VEXA_DATA_DIR`). Para borrar la demo, elimina la carpeta.
+
 ## Solución de problemas
 
 | Síntoma | Acción |
