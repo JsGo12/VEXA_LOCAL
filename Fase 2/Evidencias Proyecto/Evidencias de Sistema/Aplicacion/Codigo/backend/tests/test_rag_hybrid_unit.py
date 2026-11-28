@@ -19,3 +19,19 @@ def test_long_units_are_cut_only_between_sentences():
     assert len(piezas) == 3
     assert all(p.endswith(".") for p in piezas)
     assert " ".join(piezas) == texto
+
+
+def test_chunker_handles_empty_and_prose_documents():
+    assert hybrid.chunkear("a.txt", []) == ([], False)
+    paginas = [{"page_number": 1, "text": "El contrato rige desde marzo."},
+               {"page_number": 2, "text": "Las partes firman en Talca."}]
+    chunks, ficha = hybrid.chunkear("a.txt", paginas)
+    assert ficha is False
+    assert chunks[0].page_number == 1 and chunks[-1].page_number_fin == 2
+
+
+def test_chunker_keeps_records_whole():
+    paginas = [{"page_number": 1, "text": "Cliente 1\nNombre: Ana\nCliente 2\nNombre: Luis"}]
+    chunks, ficha = hybrid.chunkear("fichas.txt", paginas)
+    assert ficha is True
+    assert [c.text.splitlines()[0] for c in chunks] == ["Cliente 1", "Cliente 2"]
