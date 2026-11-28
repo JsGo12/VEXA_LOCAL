@@ -28,3 +28,20 @@ def test_top_k_never_exceeds_available_chunks():
     assert core.determinar_top_k("lista de clientes", 2) == 2
     assert core.determinar_top_k("teléfono", 1) == 1
     assert core.determinar_top_k("teléfono", 0) == 0
+
+
+def test_record_header_is_detected_only_when_repeated():
+    fichas = "Cliente 1\nNombre: Ana\nCliente 2\nNombre: Luis\n"
+    assert core.detectar_encabezado_registro(fichas) is not None
+    assert core.detectar_encabezado_registro("Este contrato se firma en Santiago.") is None
+    assert core.detectar_encabezado_registro("Total 1500\nResumen del caso") is None
+
+
+def test_records_crossing_a_page_break_stay_together():
+    paginas = [{"page_number": 1, "text": "Cliente 1\nNombre: Ana\nCliente 2\nNombre:"},
+               {"page_number": 2, "text": "Luis\nCliente 3\nNombre: Eva"}]
+    patron = core.detectar_encabezado_registro("\n".join(p["text"] for p in paginas))
+    chunks = core.dividir_por_registros("fichas.pdf", paginas, patron)
+    assert [(c.page_number, c.page_number_fin) for c in chunks] == [(1, 1), (1, 2), (2, 2)]
+    assert "Luis" in chunks[1].text
+    assert [c.chunk_index for c in chunks] == [0, 1, 2]
