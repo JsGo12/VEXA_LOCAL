@@ -74,7 +74,7 @@ def _get() -> Fernet:
                     LOGGER.warning("No se pudo proteger una clave antigua con DPAPI; se conserva para no perder acceso a los datos.")
         else:
             key = Fernet.generate_key()
-            # On Windows new keys are always DPAPI-protected (never a silent plaintext fallback).
+            # En Windows las claves nuevas siempre quedan protegidas con DPAPI (nunca en texto plano).
             try:
                 _create_atomic(ruta, protected_key_file(key))
             except FileExistsError:
