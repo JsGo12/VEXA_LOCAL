@@ -360,6 +360,37 @@ def case_summary_api(case_id):
 
 
 # -------------------------------------------------------------------- chat
+def _chat_index(rt, case_id: int, paths: list[str], names: dict[str, str]):
+    """Índice para responder: ((índice, firma, cache_hit, aviso), None) o (None, respuesta de error).
+
+    Mientras el caso se indexa se puede usar el índice parcial, solo si no excede lo autorizado."""
+    job, part = rt.indexer.partial(case_id)
+    if job and job["state"] == "running":
+        if not part or not set(part[3]) <= set(paths):
+            pct = int(job["progress"] * 100)
+            return None, (jsonify(ok=False, error=f"VEXA está preparando los documentos ({pct}%). "
+                                                  "Inténtalo en unos segundos."), 409)
+        index, done, total, _ = part
+        prepared = (index, None, False, f"Aviso: VEXA aún indexa; esta respuesta usa {done} de {total} documentos.\n\n")
+    else:
+        try:
+            index, signature, cache_hit = rt.indexer.get_index(case_id, paths, names)
+        except Exception:
+            LOGGER.exception("Falló la extracción o indexación del caso %s", case_id)
+            return None, (jsonify(ok=False, error="VEXA no pudo leer o preparar los documentos del caso. "
+                                                  "Revisa que los archivos sean válidos."), 422)
+        prepared = (index, signature, cache_hit, "")
+    if index.esta_vacio():
+        errors = getattr(index, "errores", [])
+        if errors:
+            message = "No se pudo leer ningún documento: " + "; ".join(errors[:3])
+        else:
+            extra = "" if formats.ocr_disponible() else " Si el PDF es escaneado, instala Tesseract para activar el OCR."
+            message = "VEXA no pudo extraer texto de los documentos." + extra
+        return None, (jsonify(ok=False, error=message), 422)
+    return prepared, None
+
+
 @bp.post("/api/case/<int:case_id>/chat")
 @login_required
 def case_chat(case_id):
@@ -379,31 +410,10 @@ def case_chat(case_id):
     perfil, error = chat_profile()
     if error:
         return error
-    notice = ""
-    job, part = rt.indexer.partial(case_id)
-    if job and job["state"] == "running":
-        # Se puede preguntar mientras indexa, solo si el índice parcial no excede lo autorizado.
-        if not part or not set(part[3]) <= set(paths):
-            pct = int(job["progress"] * 100)
-            return jsonify(ok=False, error=f"VEXA está preparando los documentos ({pct}%). Inténtalo en unos segundos."), 409
-        index, done, total, _ = part
-        signature, index_cache_hit = None, False
-        notice = f"Aviso: VEXA aún indexa; esta respuesta usa {done} de {total} documentos.\n\n"
-    else:
-        try:
-            index, signature, index_cache_hit = rt.indexer.get_index(case_id, paths, names)
-        except Exception:
-            LOGGER.exception("Falló la extracción o indexación del caso %s", case_id)
-            return jsonify(ok=False, error="VEXA no pudo leer o preparar los documentos del caso. Revisa que los archivos sean válidos."), 422
-
-    if index.esta_vacio():
-        errors = getattr(index, "errores", [])
-        if errors:
-            message = "No se pudo leer ningún documento: " + "; ".join(errors[:3])
-        else:
-            extra = "" if formats.ocr_disponible() else " Si el PDF es escaneado, instala Tesseract para activar el OCR."
-            message = "VEXA no pudo extraer texto de los documentos." + extra
-        return jsonify(ok=False, error=message), 422
+    prepared, error = _chat_index(rt, case_id, paths, names)
+    if error:
+        return error
+    index, signature, index_cache_hit, notice = prepared
 
     user_id = g.user["id"]
     history = store.recent_messages(db_path, case_id, user_id, limit=rag_hybrid.HISTORY_TURNS * 2)
