@@ -387,8 +387,7 @@ def consultar_stream(pregunta: str, fragmentos: list[Chunk], historial: list[dic
         yield "No encontré información relevante en los documentos del caso para responder esta pregunta."
         return
     mensajes = [{"role": "system", "content": sistema or PROMPT_SISTEMA}]
-    for m in historial[-HISTORY_TURNS * 2:]:
-        mensajes.append({"role": m["role"], "content": m["content"][:400]})
+    mensajes.extend({"role": m["role"], "content": m["content"][:400]} for m in historial[-HISTORY_TURNS * 2:])
     mensajes.append({"role": "user", "content": rag_core.construir_prompt(pregunta, fragmentos)})
     stream = rag_core.cliente_ollama(host).chat(
         model=modelo, messages=mensajes, options=opciones or {}, keep_alive=rag_core.OLLAMA_KEEP_ALIVE, stream=True)

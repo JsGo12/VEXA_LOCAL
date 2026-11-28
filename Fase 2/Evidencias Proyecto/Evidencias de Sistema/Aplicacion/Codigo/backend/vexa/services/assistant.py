@@ -66,10 +66,10 @@ class FirmAssistant:
             cases = db.execute(CASE_LIST_SQL + f" WHERE c.id IN ({marks}) ORDER BY c.id", list(scope)).fetchall()
             documents: list[firm.AuthorizedDocument] = []
             for case in cases:
-                for doc in policy.visible_documents(db, user, case["id"]):
-                    if Path(doc["stored_path"]).is_file():
-                        documents.append(firm.AuthorizedDocument(doc["id"], case["id"], case_label(case),
-                                                                 doc["original_name"], doc["stored_path"]))
+                documents.extend(
+                    firm.AuthorizedDocument(doc["id"], case["id"], case_label(case), doc["original_name"],
+                                            doc["stored_path"])
+                    for doc in policy.visible_documents(db, user, case["id"]) if Path(doc["stored_path"]).is_file())
         return documents, [_card(c) for c in cases], scope
 
     def index_for(self, user_id: int, documents: Sequence[firm.AuthorizedDocument], progreso=None):
