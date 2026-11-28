@@ -6,9 +6,9 @@ crea el administrador inicial y registra las rutas. El servidor WSGI (Waitress) 
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional, Tuple
 
 from flask import Flask, current_app
 
@@ -32,7 +32,7 @@ class Runtime:
     settings: Settings
     indexer: CaseIndexer
     assistant: FirmAssistant
-    migration_backup: Optional[Path] = None
+    migration_backup: Path | None = None
     services_started: bool = False
 
 
@@ -56,8 +56,8 @@ def apply_engine_settings(settings: Settings) -> None:
     rag_formats.configurar(settings.tesseract_cmd)
 
 
-def create_app(settings: Optional[Settings] = None, *,
-               listeners: Optional[Iterable[Tuple[str, int]]] = None,
+def create_app(settings: Settings | None = None, *,
+               listeners: Iterable[tuple[str, int]] | None = None,
                start_services: bool = False) -> Flask:
     settings = settings or load_settings()
     configure_logging(settings.log_level)

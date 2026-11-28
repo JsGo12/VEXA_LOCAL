@@ -13,7 +13,6 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 from vexa.config import ConfigError, Settings, load_settings
 from vexa.security import network
@@ -52,7 +51,7 @@ class InstanceLock:
             raise AlreadyRunning("Ya hay un servidor VEXA activo con esta carpeta de datos.") from exc
         self._fh = fh
 
-    def publish(self, listeners: List[Tuple[str, int]]) -> None:
+    def publish(self, listeners: list[tuple[str, int]]) -> None:
         local_port = listeners[0][1]
         payload = {"pid": os.getpid(), "port": local_port,
                    "listen": [f"{h}:{p}" for h, p in listeners]}
@@ -73,7 +72,7 @@ class InstanceLock:
             self._fh = None
 
 
-def build(settings: Optional[Settings] = None, detect=network.detect_tailscale_ipv4):
+def build(settings: Settings | None = None, detect=network.detect_tailscale_ipv4):
     """Valida la configuración y crea la app. Devuelve (app, settings, listeners)."""
     settings = settings or load_settings()
     listeners = network.listen_addresses(settings, detect=detect)
@@ -82,7 +81,7 @@ def build(settings: Optional[Settings] = None, detect=network.detect_tailscale_i
     return app, settings, listeners
 
 
-def serve(settings: Optional[Settings] = None, *, dev: bool = False) -> int:
+def serve(settings: Settings | None = None, *, dev: bool = False) -> int:
     try:
         settings = settings or load_settings()
     except ConfigError as exc:
