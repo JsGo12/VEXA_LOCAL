@@ -83,11 +83,13 @@ Solo loopback, sin recarga automática, prohibido con `VEXA_ENV=production`.
 Las pruebas crean su propia carpeta temporal y nunca leen el `.env` real ni `%USERPROFILE%\.vexa_local`.
 
 Antes de subir cambios, revisa también el linter (las reglas están en `ruff.toml`; `ruff` se instala con
-`backendequirements-dev.txt`):
+`backend\requirements-dev.txt`):
 
 ```powershell
 .\.venv\Scripts\python.exe -m ruff check backend
 ```
+
+En GitHub, cada push a `main` corre automáticamente el linter y las pruebas en Windows (`.github/workflows/pruebas.yml`, en la raíz del repositorio); el resultado se ve en la pestaña **Actions** y en la insignia del README.
 
 ## 7. Instalador de Windows
 
