@@ -29,7 +29,7 @@ Alternativa al servidor Windows de [despliegue.md](despliegue.md). Archivos, tod
 Requisitos: Docker Desktop (backend WSL 2) en el PC servidor.
 
 ```powershell
-Set-Location Codigo\docker                    # todos los comandos docker compose, desde aquí
+Set-Location docker      # desde la carpeta Codigo; todos los comandos docker compose, desde aquí
 Copy-Item .env.docker.example .env.docker      # opcional: modelo, MagicDNS…
 docker compose up -d --build
 docker compose logs -f tailscale               # 1.ª vez: abre el enlace "To authenticate, visit…"

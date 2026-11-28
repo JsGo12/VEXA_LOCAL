@@ -1,6 +1,6 @@
 # VEXA Local en Docker: Tailscale + Ollama + VEXA en la MISMA red (la del contenedor tailscale).
 #
-#   cd Codigo\docker                     # ejecuta los comandos desde esta carpeta
+#   cd docker                            # desde la carpeta Codigo; ejecuta los comandos aquí
 #   docker compose up -d --build
 #   docker compose logs tailscale       # primera vez: abre el enlace de inicio de sesión
 #   docker compose exec tailscale tailscale ip -4   # IP 100.x para los PCs de abogados

@@ -1,5 +1,5 @@
 # Vexa Local: archivos locales y artefactos que no deben publicarse.
-# Las reglas específicas de la aplicación están en Codigo/.gitignore.
+# Las reglas específicas de la aplicación están en Fase 2/Evidencias Proyecto/Evidencias de Sistema/Aplicacion/Codigo/.gitignore.
 
 # Python y pruebas
 __pycache__/
