@@ -35,3 +35,9 @@ def test_txt_is_split_into_pages_by_paragraphs():
     paginas = formats.extraer("notas.txt", texto.encode("utf-8"))
     assert [p["page_number"] for p in paginas] == [1, 2]
     assert paginas[1]["text"].startswith(f"Párrafo {formats.LINEAS_POR_PAGINA}")
+
+
+def test_unsupported_format_is_rejected():
+    import pytest
+    with pytest.raises(ValueError):
+        formats.extraer("antiguo.doc", b"")
