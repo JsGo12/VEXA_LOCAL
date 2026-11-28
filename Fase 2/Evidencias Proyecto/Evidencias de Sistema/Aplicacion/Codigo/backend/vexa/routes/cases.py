@@ -22,6 +22,7 @@ from vexa.routes.streaming import chat_profile, ndjson_response, ollama_error_me
 from vexa.routes.streaming import event as _event
 from vexa.security import vault
 from vexa.services import audit, llm_priority
+from vexa.services import calendar as calendar_service
 from vexa.services import cases as case_service
 from vexa.services import messages as message_service
 from vexa.services import notifications as notification_service
@@ -77,6 +78,14 @@ def _my_cases():
 @login_required
 def lawyer_dashboard():
     return render_template("lawyer.html", cases=_my_cases())
+
+
+@bp.get("/calendario")
+@login_required
+def deadline_calendar():
+    """Fechas límite del mes, solo de los casos que la persona puede ver."""
+    year, month = calendar_service.parse_month(request.args.get("mes"))
+    return render_template("calendar.html", cal=calendar_service.month_view(_my_cases(), year, month))
 
 
 @bp.get("/chief")

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}{% block title %}Calendario · VEXA{% endblock %}
+{% block content %}
+<div class="page-heading"><div><span class="eyebrow">VENCIMIENTOS</span><h1>Calendario</h1><p>Fechas límite de los casos que puedes ver. El color indica el plazo.</p></div><span class="count-pill">{{ cal.total }} este mes</span></div>
+<nav class="calendar-nav" aria-label="Cambiar de mes">
+  <a class="button button-quiet" href="{{ url_for('cases.deadline_calendar', mes=cal.prev) }}">← Anterior</a>
+  <h2>{{ cal.label }}</h2>
+  <a class="button button-quiet" href="{{ url_for('cases.deadline_calendar', mes=cal.next) }}">Siguiente →</a>
+  <a class="text-link" href="{{ url_for('cases.deadline_calendar') }}">Hoy</a>
+</nav>
+<div class="panel calendar" role="table" aria-label="Vencimientos de {{ cal.label }}">
+  <div class="calendar-row calendar-head" role="row">{% for d in cal.weekdays %}<div role="columnheader">{{ d }}</div>{% endfor %}</div>
+  {% for week in cal.weeks %}<div class="calendar-row" role="row">
+    {% for cell in week %}{% if cell %}<div class="calendar-day{% if cell.today %} is-today{% endif %}{% if cell.cases %} has-cases{% endif %}" role="cell">
+      <span class="calendar-date">{{ cell.day }}</span>
+      {% for c in cell.cases %}<a class="calendar-case deadline-{{ c.state }}" href="{{ url_for('cases.case_workspace', case_id=c.id) }}" title="{{ c.title }} · {{ DEADLINE_LABELS.get(c.state, '') }}">{% if c.time and c.time != '00:00' %}<small>{{ c.time }}</small> {% endif %}{{ c.title }}</a>{% endfor %}
+    </div>{% else %}<div class="calendar-day is-empty" role="cell"></div>{% endif %}{% endfor %}
+  </div>{% endfor %}
+</div>
+<p class="hint">{% for key, label in DEADLINE_LABELS.items() %}<span class="calendar-legend deadline-{{ key }}">{{ label }}</span>{% endfor %}</p>
+{% endblock %}
