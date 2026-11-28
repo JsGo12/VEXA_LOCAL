@@ -23,3 +23,8 @@ def test_batches_respect_the_character_limit():
     chunks = [_chunk(i, "x" * 1000) for i in range(3)]
     assert [len(g) for g in stages.lotes(chunks, max_chars=2500)] == [2, 1]
     assert stages.lotes([]) == []
+
+
+def test_batch_text_labels_each_source():
+    texto = stages._texto([_chunk(0, "Primera"), _chunk(1, "Segunda")])
+    assert texto == "[a.txt — página 1]\nPrimera\n\n[a.txt — página 2]\nSegunda"
