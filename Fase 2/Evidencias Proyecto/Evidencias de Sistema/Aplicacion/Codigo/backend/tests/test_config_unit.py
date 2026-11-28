@@ -23,3 +23,18 @@ def test_int_validates_range_and_format():
         config._int("X", "11", 5, 1, 10)
     with pytest.raises(config.ConfigError):
         config._int("X", "abc", 5, 1, 10)
+
+
+def test_loopback_detection():
+    for host in ("127.0.0.1", "127.0.0.2", "::1", "[::1]", "localhost", " LOCALHOST "):
+        assert config.is_loopback_host(host), host
+    for host in ("192.168.0.1", "100.64.0.1", "ejemplo.cl", ""):
+        assert not config.is_loopback_host(host), host
+
+
+def test_tailscale_address_ranges():
+    assert config.is_tailscale_address("100.64.0.1")
+    assert config.is_tailscale_address("100.127.255.254")
+    assert config.is_tailscale_address("fd7a:115c:a1e0::1")
+    assert not config.is_tailscale_address("100.128.0.1")
+    assert not config.is_tailscale_address("nombre-equipo")
