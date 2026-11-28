@@ -21,12 +21,12 @@ PROJECT = Path(__file__).resolve().parents[2]
 
 
 def build_env(example: str, generate_secret: bool) -> str:
-    lines = []
-    for line in example.splitlines():
+    def fill(line: str) -> str:
         if generate_secret and line.startswith("VEXA_SECRET_KEY="):
-            line = "VEXA_SECRET_KEY=" + secrets.token_urlsafe(48)
-        lines.append(line)
-    return "\n".join(lines) + "\n"
+            return "VEXA_SECRET_KEY=" + secrets.token_urlsafe(48)
+        return line
+
+    return "\n".join(fill(line) for line in example.splitlines()) + "\n"
 
 
 def main(argv=None) -> int:
