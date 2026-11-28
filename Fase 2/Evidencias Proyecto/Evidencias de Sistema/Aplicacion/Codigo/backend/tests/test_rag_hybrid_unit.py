@@ -49,3 +49,17 @@ def test_neighbours_are_added_except_for_records():
     assert [c.chunk_index for c in hybrid.con_vecinos([chunks[1]], indice)] == [0, 1, 2]
     fichas = hybrid._armar(chunks, None, {"a.txt"}, "modelo")
     assert hybrid.con_vecinos([chunks[1]], fichas) == [chunks[1]]
+
+
+def test_neighbours_are_not_duplicated():
+    chunks = [_chunk(0), _chunk(1), _chunk(2)]
+    indice = hybrid._armar(chunks, None, set(), "modelo")
+    vecinos = hybrid.con_vecinos([chunks[0], chunks[1]], indice)
+    assert [c.chunk_index for c in vecinos] == [0, 1, 2]
+
+
+def test_context_limit_prioritises_search_hits():
+    acierto = _chunk(1, "a" * 3000)
+    vecino = _chunk(0, "b" * 3000)
+    assert hybrid.limitar_contexto([vecino, acierto], [acierto], maximo=4500) == [acierto]
+    assert hybrid.limitar_contexto([vecino, acierto], [acierto], maximo=7000) == [vecino, acierto]
