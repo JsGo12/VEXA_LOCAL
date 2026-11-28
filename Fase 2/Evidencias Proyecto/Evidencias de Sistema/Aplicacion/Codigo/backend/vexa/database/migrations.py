@@ -375,11 +375,6 @@ def backup_database(db_path: Path, backups_dir: Path, label: str) -> Path:
     return target
 
 
-def current_version(db_path: Path) -> int:
-    with sqlite3.connect(db_path) as db:
-        return db.execute("PRAGMA user_version").fetchone()[0]
-
-
 def migrate(db_path: Path, backups_dir: Path | None = None) -> Path | None:
     """Crea/actualiza el esquema. Devuelve la ruta del respaldo previo, si se hizo uno."""
     db_path = Path(db_path)
