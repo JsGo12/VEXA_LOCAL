@@ -13,3 +13,20 @@ def test_filter_accepts_loopback_in_every_form():
         assert filtro.allowed(remote), remote
     for remote in (None, "", "no-es-ip", "192.168.1.5", "fe80::1%3"):
         assert not filtro.allowed(remote), remote
+
+
+def test_filter_accepts_tailscale_only_when_enabled():
+    assert not network.RemoteAddressFilter(None, allow_tailscale=False).allowed("100.100.1.1")
+    filtro = network.RemoteAddressFilter(None, allow_tailscale=True)
+    assert filtro.allowed("100.100.1.1")
+    assert filtro.allowed("fd7a:115c:a1e0::5")
+    assert not filtro.allowed("100.128.0.1")
+
+
+def test_filter_answers_403_before_reaching_the_app():
+    llamado = []
+    filtro = network.RemoteAddressFilter(lambda env, start: llamado.append(True) or [b"ok"], False)
+    estados = []
+    cuerpo = filtro({"REMOTE_ADDR": "8.8.8.8"}, lambda status, headers: estados.append(status))
+    assert estados == ["403 Forbidden"] and not llamado
+    assert b"Acceso denegado" in cuerpo[0]
