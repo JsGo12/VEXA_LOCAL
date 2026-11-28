@@ -90,7 +90,7 @@ def instalados_ollama() -> set[str]:
 
 
 def perfil_para(instalados: set[str]) -> Perfil:
-    """Select a chat profile from a known Ollama model list."""
+    """Perfil de chat para la lista de modelos instalados en Ollama (según el hardware o VEXA_CHAT_MODEL)."""
     ram, vram = hardware()
     return elegir(instalados, ram, vram, CHAT_MODEL)
 
