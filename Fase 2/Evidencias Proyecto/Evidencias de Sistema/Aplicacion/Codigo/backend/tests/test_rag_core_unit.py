@@ -45,3 +45,9 @@ def test_records_crossing_a_page_break_stay_together():
     assert [(c.page_number, c.page_number_fin) for c in chunks] == [(1, 1), (1, 2), (2, 2)]
     assert "Luis" in chunks[1].text
     assert [c.chunk_index for c in chunks] == [0, 1, 2]
+
+
+def test_empty_index_returns_no_context():
+    indice = core.construir_indice([])
+    assert indice.esta_vacio() and indice.bm25 is None
+    assert core.buscar_contexto_relevante("arriendo", indice) == []
