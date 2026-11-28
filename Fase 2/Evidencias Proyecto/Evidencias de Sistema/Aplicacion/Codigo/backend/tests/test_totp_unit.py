@@ -26,3 +26,10 @@ def test_verify_ignores_spaces_and_rejects_wrong_length():
     assert totp.verify(RFC_SECRET, "287 082", now=59) == 1
     assert totp.verify(RFC_SECRET, "28708", now=59) is None
     assert totp.verify(RFC_SECRET, "", now=59) is None
+
+
+def test_verify_accepts_one_step_of_clock_drift():
+    previous = totp.code_at(RFC_SECRET, 9)
+    assert totp.verify(RFC_SECRET, previous, now=10 * 30) == 9
+    too_old = totp.code_at(RFC_SECRET, 8)
+    assert totp.verify(RFC_SECRET, too_old, now=10 * 30) is None
