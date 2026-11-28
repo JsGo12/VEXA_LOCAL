@@ -24,3 +24,14 @@ def test_existing_file_is_never_overwritten(tmp_path):
     with pytest.raises(recovery.RecoveryError):
         recovery.export_recovery(destino, FRASE)
     assert destino.read_bytes() == b"otro archivo"
+
+
+def test_wrong_passphrase_or_foreign_file_is_rejected(tmp_path):
+    recovery.export_recovery(tmp_path / "clave.vexakey", FRASE)
+    with pytest.raises(recovery.RecoveryError):
+        recovery.load_recovery(tmp_path / "clave.vexakey", "otra frase distinta")
+    (tmp_path / "ajeno.bin").write_bytes(b"no es una clave")
+    with pytest.raises(recovery.RecoveryError):
+        recovery.load_recovery(tmp_path / "ajeno.bin", FRASE)
+    with pytest.raises(recovery.RecoveryError):
+        recovery.load_recovery(tmp_path / "no_existe.bin", FRASE)
