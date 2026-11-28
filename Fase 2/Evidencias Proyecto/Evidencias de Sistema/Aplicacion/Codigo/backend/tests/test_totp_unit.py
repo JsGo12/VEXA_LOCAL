@@ -33,3 +33,9 @@ def test_verify_accepts_one_step_of_clock_drift():
     assert totp.verify(RFC_SECRET, previous, now=10 * 30) == 9
     too_old = totp.code_at(RFC_SECRET, 8)
     assert totp.verify(RFC_SECRET, too_old, now=10 * 30) is None
+
+
+def test_secret_is_case_and_space_insensitive_and_grouped():
+    spaced = totp.grouped(RFC_SECRET).lower()
+    assert spaced.split()[0] == "gezd"
+    assert totp.code_at(spaced, 1) == totp.code_at(RFC_SECRET, 1)
