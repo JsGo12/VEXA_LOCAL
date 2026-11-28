@@ -58,3 +58,12 @@ def test_single_chunk_corpus_uses_lexical_fallback():
     indice = core.construir_indice([chunk])
     assert core.buscar_contexto_relevante("¿Cuánto dura el arriendo?", indice) == [chunk]
     assert core.buscar_contexto_relevante("¿?", indice) == []
+
+
+def test_bm25_ranks_the_matching_chunk_first():
+    chunks = [_chunk("El arrendatario paga la renta mensual", index=0),
+              _chunk("La garantía es de un mes de renta", index=1),
+              _chunk("El inmueble queda en Valparaíso", index=2),
+              _chunk("Las partes fijan domicilio en Santiago", index=3)]
+    indice = core.construir_indice(chunks)
+    assert core.buscar_contexto_relevante("¿Dónde queda el inmueble?", indice, top_k=1) == [chunks[2]]
