@@ -19,6 +19,7 @@
     <nav class="main-nav" aria-label="Navegación principal">
       {% if g.user.role == 'chief_lawyer' %}<a href="{{ url_for('cases.chief_dashboard') }}">Panel</a>{% endif %}
       <a href="{{ url_for('cases.lawyer_dashboard') }}">Mis casos</a>
+      {% if can('cases.view') %}<a href="{{ url_for('cases.deadline_calendar') }}">Calendario</a>{% endif %}
       {% if can('cases.message') %}<a href="{{ url_for('messages.inbox') }}">Mensajes{% if unread_messages %}<span class="nav-badge">{{ unread_messages if unread_messages < 100 else '99+' }}</span>{% endif %}</a>{% endif %}
       {% if can('assistant.use') %}<a href="{{ url_for('assistant.page') }}">Asistente</a>{% endif %}
       {% if can('users.manage') or can('teams.manage') or can('cases.manage') %}<a href="{{ url_for('admin.dashboard') }}">Administración</a>{% endif %}
