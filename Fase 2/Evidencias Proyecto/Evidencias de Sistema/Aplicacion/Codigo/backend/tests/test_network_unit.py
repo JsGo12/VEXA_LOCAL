@@ -38,3 +38,9 @@ def test_tailscale_interface_requires_its_name():
     assert network.tailscale_interface_ipv4({"eth0": addr}) is None
     assert network.tailscale_interface_ipv4({"Tailscale": addr}) == "100.70.0.1"
     assert network.tailscale_interface_ipv4({"tailscale0": [SimpleNamespace(address="fd7a:115c:a1e0::1")]}) is None
+
+
+def test_trusted_hosts_include_magicdns_name():
+    settings = network.Settings(tailscale_host="vexa.tail1234.ts.net")
+    hosts = network.trusted_hosts(settings, [("127.0.0.1", 5000)])
+    assert {"vexa.tail1234.ts.net", "vexa", "localhost", "127.0.0.1"} <= set(hosts)
