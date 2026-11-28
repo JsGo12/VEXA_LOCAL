@@ -67,3 +67,10 @@ def test_bm25_ranks_the_matching_chunk_first():
               _chunk("Las partes fijan domicilio en Santiago", index=3)]
     indice = core.construir_indice(chunks)
     assert core.buscar_contexto_relevante("¿Dónde queda el inmueble?", indice, top_k=1) == [chunks[2]]
+
+
+def test_prompt_numbers_fragments_and_cites_sources():
+    prompt = core.construir_prompt("¿Quién firma?", [_chunk("Firma Ana."), _chunk("Firma Luis.", page=2, index=1)])
+    assert "[Fragmento 1 — Fuente: a.txt — página 1]" in prompt
+    assert "[Fragmento 2 — Fuente: a.txt — página 2]" in prompt
+    assert prompt.index("Firma Ana.") < prompt.index("PREGUNTA: ¿Quién firma?")
