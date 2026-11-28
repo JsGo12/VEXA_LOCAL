@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import json
 from collections import OrderedDict
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from threading import RLock
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from vexa.database import connect
 from vexa.permissions import policy
@@ -51,8 +51,8 @@ class FirmAssistant:
         self._lock = RLock()
 
     # ---------------------------------------------------------------- material
-    def authorized_material(self, user, case_filter: Optional[Iterable[int]] = None
-                            ) -> Tuple[List[firm.AuthorizedDocument], List[firm.CaseCard], Dict[int, set]]:
+    def authorized_material(self, user, case_filter: Iterable[int] | None = None
+                            ) -> tuple[list[firm.AuthorizedDocument], list[firm.CaseCard], dict[int, set]]:
         from vexa.services.cases import CASE_LIST_SQL
 
         with connect(self.db_path) as db:
@@ -64,7 +64,7 @@ class FirmAssistant:
                 return [], [], {}
             marks = ",".join("?" for _ in scope)
             cases = db.execute(CASE_LIST_SQL + f" WHERE c.id IN ({marks}) ORDER BY c.id", list(scope)).fetchall()
-            documents: List[firm.AuthorizedDocument] = []
+            documents: list[firm.AuthorizedDocument] = []
             for case in cases:
                 for doc in policy.visible_documents(db, user, case["id"]):
                     if Path(doc["stored_path"]).is_file():
@@ -101,7 +101,7 @@ class FirmAssistant:
             return db.execute("INSERT INTO assistant_conversations(user_id, title) VALUES (?, ?)",
                               (user_id, vault.enc_text(title.strip()[:80] or "Nueva consulta"))).lastrowid
 
-    def conversations(self, user_id: int) -> List[dict]:
+    def conversations(self, user_id: int) -> list[dict]:
         with connect(self.db_path) as db:
             rows = db.execute("SELECT id, title, created_at, updated_at FROM assistant_conversations "
                               "WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT 100", (user_id,)).fetchall()
@@ -118,7 +118,7 @@ class FirmAssistant:
                               (conversation_id, user_id)).rowcount > 0
 
     def add_message(self, conversation_id: int, role: str, content: str,
-                    sources: Sequence[dict] = (), metadata: Optional[dict] = None) -> int:
+                    sources: Sequence[dict] = (), metadata: dict | None = None) -> int:
         with connect(self.db_path) as db:
             message_id = db.execute(
                 "INSERT INTO assistant_messages(conversation_id, role, content, metadata) VALUES (?, ?, ?, ?)",
@@ -134,7 +134,7 @@ class FirmAssistant:
                        (conversation_id,))
         return message_id
 
-    def messages(self, user, conversation_id: int, limit: int = 60) -> List[dict]:
+    def messages(self, user, conversation_id: int, limit: int = 60) -> list[dict]:
         """Mensajes del propietario, con fuentes re-autorizadas en cada lectura."""
         with connect(self.db_path) as db:
             owner = db.execute("SELECT user_id FROM assistant_conversations WHERE id = ?",
@@ -151,8 +151,8 @@ class FirmAssistant:
                 src_rows = db.execute(f"SELECT * FROM assistant_message_sources WHERE message_id IN ({marks}) "
                                       "ORDER BY id", ids).fetchall()
             scope = policy.assistant_scope(db, user)
-            doc_ok: Dict[int, bool] = {}
-            by_message: Dict[int, List[dict]] = {}
+            doc_ok: dict[int, bool] = {}
+            by_message: dict[int, list[dict]] = {}
             hidden = set()
             for s in src_rows:
                 allowed = s["case_id"] in scope
@@ -181,6 +181,6 @@ class FirmAssistant:
                         "content": REDACTED if redacted else vault.dec_text(r["content"]), "sources": sources})
         return out
 
-    def history_for_model(self, user, conversation_id: int) -> List[dict]:
+    def history_for_model(self, user, conversation_id: int) -> list[dict]:
         msgs = [m for m in self.messages(user, conversation_id, limit=HISTORY_MESSAGES * 2) if not m["redacted"]]
         return [{"role": m["role"], "content": m["content"]} for m in msgs[-HISTORY_MESSAGES:]]

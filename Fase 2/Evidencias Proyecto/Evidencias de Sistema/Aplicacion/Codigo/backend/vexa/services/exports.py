@@ -5,8 +5,8 @@ Solo metadatos: lo mismo que se ve en pantalla (sin notas, preguntas ni contenid
 from __future__ import annotations
 
 import io
+from collections.abc import Iterable, Sequence
 from datetime import datetime
-from typing import Iterable, List, Sequence
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -50,7 +50,7 @@ def _bytes(wb: Workbook) -> bytes:
 
 def follow_up_xlsx(data: dict, deadline_labels: dict) -> bytes:
     wb = Workbook()
-    cases: List[dict] = data["cases"]
+    cases: list[dict] = data["cases"]
     rows, fills = [], []
     for c in cases:
         rows.append([c["title"], c.get("reference") or f"#{c['id']}",
@@ -81,7 +81,7 @@ def follow_up_xlsx(data: dict, deadline_labels: dict) -> bytes:
     return _bytes(wb)
 
 
-def audit_xlsx(rows: List[dict]) -> bytes:
+def audit_xlsx(rows: list[dict]) -> bytes:
     wb = Workbook()
     _sheet(wb, "Auditoría", ["Fecha y hora", "Persona", "Usuario", "Acción", "Qué se hizo", "Resultado", "Motivo", "Origen"],
            ([r["when"], r["who"], r["username"] or "", r["label"], r["sentence"], r["result_label"],

@@ -16,9 +16,9 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Iterable, List, Optional, Set
 
 from vexa.database import connect
 from vexa.permissions import policy
@@ -31,7 +31,7 @@ ICONS = {"mensaje": "✉", "asignacion": "§", "nota": "✎", "avance": "▲", "
 
 
 # ------------------------------------------------------------------------ destinatarios
-def assignees(db, case_id: int) -> Set[int]:
+def assignees(db, case_id: int) -> set[int]:
     """Responsable directo o integrantes activos del equipo asignado."""
     row = db.execute("SELECT user_id, team_id FROM case_assignments WHERE case_id = ?", (case_id,)).fetchone()
     if row is None:
@@ -43,7 +43,7 @@ def assignees(db, case_id: int) -> Set[int]:
         "WHERE m.team_id = ? AND u.active = 1", (row["team_id"],))}
 
 
-def supervisors(db, case_id: int) -> Set[int]:
+def supervisors(db, case_id: int) -> set[int]:
     """Abogados jefe a cargo de alguno de los responsables del caso."""
     people = assignees(db, case_id)
     if not people:
@@ -61,7 +61,7 @@ def _case_title(db, case_id: int) -> str:
 
 # ------------------------------------------------------------------------------ crear
 def notify(db_path: Path, user_ids: Iterable[int], kind: str, title: str, message: str = "",
-           case_id: Optional[int] = None, exclude: Optional[int] = None, dedupe: Optional[str] = None) -> int:
+           case_id: int | None = None, exclude: int | None = None, dedupe: str | None = None) -> int:
     """Crea la notificación para cada destinatario que pueda ver el caso. Devuelve cuántas se crearon."""
     created = 0
     try:
@@ -127,7 +127,7 @@ def documents_added(db_path: Path, case_id: int, actor_id: int, count: int) -> N
            exclude=actor_id)
 
 
-def check_deadlines(db_path: Path, now: Optional[datetime] = None) -> int:
+def check_deadlines(db_path: Path, now: datetime | None = None) -> int:
     """Recordatorios de vencimiento (una vez por caso y fecha límite). Devuelve cuántos avisos creó."""
     now = now or datetime.now()
     created = 0
@@ -177,7 +177,7 @@ def unread_count(db_path: Path, user_id: int) -> int:
                           (user_id,)).fetchone()[0]
 
 
-def list_for(db_path: Path, user_id: int, limit: int = 100) -> List[dict]:
+def list_for(db_path: Path, user_id: int, limit: int = 100) -> list[dict]:
     with connect(db_path) as db:
         rows = db.execute("SELECT * FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT ?",
                           (user_id, limit)).fetchall()
@@ -190,7 +190,7 @@ def get_own(db_path: Path, user_id: int, notification_id: int):
                           (notification_id, user_id)).fetchone()
 
 
-def mark_read(db_path: Path, user_id: int, notification_id: Optional[int] = None) -> None:
+def mark_read(db_path: Path, user_id: int, notification_id: int | None = None) -> None:
     with connect(db_path) as db:
         if notification_id is None:
             db.execute("UPDATE notifications SET read_at = CURRENT_TIMESTAMP WHERE user_id = ? AND read_at IS NULL",

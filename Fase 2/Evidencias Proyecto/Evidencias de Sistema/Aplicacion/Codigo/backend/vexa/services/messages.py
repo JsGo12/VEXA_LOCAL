@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Set
 
 from vexa.database import connect
 from vexa.permissions import policy
@@ -34,7 +33,7 @@ class MessageError(ValueError):
     """Mensaje vacío o demasiado largo."""
 
 
-def participants(db, case_id: int) -> Set[int]:
+def participants(db, case_id: int) -> set[int]:
     """Responsables, jefes a cargo, quien creó el caso y quienes ya escribieron en la conversación."""
     people = notifications.assignees(db, case_id) | notifications.supervisors(db, case_id)
     creator = db.execute("SELECT created_by FROM cases WHERE id = ?", (case_id,)).fetchone()
@@ -107,7 +106,7 @@ def due_change_text(actor: str, previous: str, new: str) -> str:
     return f"{actor} {verb} la fecha límite: {fmt(previous)} → {fmt(new)}."
 
 
-def thread(db_path: Path, case_id: int, viewer_id: int, after_id: int = 0, limit: int = 200) -> List[dict]:
+def thread(db_path: Path, case_id: int, viewer_id: int, after_id: int = 0, limit: int = 200) -> list[dict]:
     """Mensajes del caso (más antiguos primero), opcionalmente solo los posteriores a after_id."""
     with connect(db_path) as db:
         rows = db.execute("""SELECT * FROM (
@@ -150,7 +149,7 @@ def unread_count(db_path: Path, case_id: int, user_id: int) -> int:
                                AND (m.user_id IS NULL OR m.user_id <> ?)""", (user_id, case_id, user_id)).fetchone()[0]
 
 
-def inbox(db_path: Path, user) -> List[dict]:
+def inbox(db_path: Path, user) -> list[dict]:
     """Conversaciones de los casos que la persona puede ver, con el último mensaje y los no leídos."""
     with connect(db_path) as db:
         scope = policy.case_scope(db, user) if policy.has_permission(db, user, "cases.message") else {}

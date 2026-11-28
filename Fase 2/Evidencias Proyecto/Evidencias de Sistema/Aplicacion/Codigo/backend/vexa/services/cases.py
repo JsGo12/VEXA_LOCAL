@@ -5,9 +5,9 @@ import hashlib
 import logging
 import sqlite3
 import uuid
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
 
 from werkzeug.utils import secure_filename
 
@@ -46,7 +46,7 @@ def _assignee_valid(db: sqlite3.Connection, assignment_type: str, assignee_id: i
     return db.execute("SELECT 1 FROM teams WHERE id = ?", (assignee_id,)).fetchone() is not None
 
 
-def parse_assignment(assignment_type: Optional[str], raw_assignee: str) -> Tuple[str, int]:
+def parse_assignment(assignment_type: str | None, raw_assignee: str) -> tuple[str, int]:
     if assignment_type not in {"user", "team"} or not raw_assignee:
         raise CaseError("Selecciona el responsable del caso.")
     try:
@@ -66,7 +66,7 @@ def parse_due_date(due_at: str) -> str:
 
 
 def create_case(db_path: Path, upload_dir: Path, *, title: str, summary: str, reference: str,
-                due_at: str, assignment_type: str, assignee_id: int, files: List[Tuple[str, bytes]],
+                due_at: str, assignment_type: str, assignee_id: int, files: list[tuple[str, bytes]],
                 created_by: int) -> int:
     """Crea el caso, su asignación y sus documentos cifrados en una sola transacción."""
     storage_dir = Path(upload_dir) / uuid.uuid4().hex
@@ -194,7 +194,7 @@ def close_label(status: str, close_reason: str = "") -> str:
     return label
 
 
-def parse_progress(status: str, raw_progress: str, note: str, close_reason: str = "") -> Tuple[str, int, str, str]:
+def parse_progress(status: str, raw_progress: str, note: str, close_reason: str = "") -> tuple[str, int, str, str]:
     """Valida estado, avance, nota y motivo de cierre. Devuelve (estado, avance, nota, motivo)."""
     if status not in STATUS_LABELS:
         raise CaseError("Selecciona un estado válido.")
@@ -258,7 +258,7 @@ def set_due_date(db_path: Path, case_id: int, due_at: str) -> str:
     return row["due_at"]
 
 
-def case_updates(db_path: Path, case_id: int, limit: int = 30) -> List[dict]:
+def case_updates(db_path: Path, case_id: int, limit: int = 30) -> list[dict]:
     with connect(db_path) as db:
         rows = db.execute("""SELECT u.id, u.status, u.progress, u.note, u.kind, u.close_reason, u.created_at, us.name AS author
                              FROM case_updates u LEFT JOIN users us ON us.id = u.user_id
@@ -270,7 +270,7 @@ def case_updates(db_path: Path, case_id: int, limit: int = 30) -> List[dict]:
 DEADLINE_LABELS = {"vencido": "Vencido", "pronto": "Vence pronto", "al_dia": "Al día", "cerrado": "Cerrado"}
 
 
-def deadline_state(due_at: str, status: str, now: Optional[datetime] = None, soon_days: int = 7) -> str:
+def deadline_state(due_at: str, status: str, now: datetime | None = None, soon_days: int = 7) -> str:
     """Semáforo de un caso: 'vencido' (abierto y pasado), 'pronto' (abierto, < soon_days), 'al_dia' o
     'cerrado' (los casos cerrados ya no corren plazo, se cerraran completos o no)."""
     if status == "cerrado":
@@ -285,7 +285,7 @@ def deadline_state(due_at: str, status: str, now: Optional[datetime] = None, soo
     return "pronto" if (due - now).days < soon_days else "al_dia"
 
 
-def follow_up(db_path: Path, soon_days: int = 7, case_ids: Optional[Iterable[int]] = None) -> dict:
+def follow_up(db_path: Path, soon_days: int = 7, case_ids: Iterable[int] | None = None) -> dict:
     """Datos del panel de seguimiento: solo metadatos (sin notas ni contenido documental).
     case_ids limita el panel (abogado jefe: solo los casos de su alcance)."""
     now = datetime.now()

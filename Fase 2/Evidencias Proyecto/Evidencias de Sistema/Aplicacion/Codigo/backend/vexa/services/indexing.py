@@ -12,10 +12,10 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections import OrderedDict
+from collections.abc import Callable, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from threading import Condition, Lock, RLock, Thread
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from vexa.database import connect, store
 from vexa.permissions import policy
@@ -25,10 +25,10 @@ from vexa.rag import stages as rag_stages
 from vexa.services import llm_priority
 
 LOGGER = logging.getLogger(__name__)
-Signature = Tuple[Tuple[str, Optional[str], int, int], ...]
+Signature = tuple[tuple[str, str | None, int, int], ...]
 
 
-def document_paths(rows: Sequence) -> Tuple[List[str], Dict[str, str]]:
+def document_paths(rows: Sequence) -> tuple[list[str], dict[str, str]]:
     """(rutas existentes, {ruta: nombre original}) de una lista de filas de documents."""
     rows = [r for r in rows if Path(r["stored_path"]).is_file()]
     return [r["stored_path"] for r in rows], {r["stored_path"]: r["original_name"] for r in rows}
@@ -43,17 +43,17 @@ class CaseIndexer:
         self._index_cache: OrderedDict[tuple, rag_hybrid.IndiceHibrido] = OrderedDict()
         self._answer_cache: OrderedDict[tuple, tuple] = OrderedDict()
         self._rag_cache_lock = RLock()
-        self._build_locks: Dict[int, list] = {}
+        self._build_locks: dict[int, list] = {}
         self._build_locks_guard = Lock()
-        self._jobs: Dict[int, dict] = {}
-        self._partial: Dict[int, tuple] = {}
+        self._jobs: dict[int, dict] = {}
+        self._partial: dict[int, tuple] = {}
         self._rerun: set = set()
         self._jobs_lock = RLock()
         self._summary_lock = Lock()
         self._summary_wakeup = Condition(self._summary_lock)
-        self._summary_pending: Dict[int, tuple] = {}
-        self._summary_order: List[int] = []
-        self._summary_worker: Optional[Thread] = None
+        self._summary_pending: dict[int, tuple] = {}
+        self._summary_order: list[int] = []
+        self._summary_worker: Thread | None = None
 
     # ----------------------------------------------------------------- utilidades
     @contextmanager
@@ -79,7 +79,7 @@ class CaseIndexer:
                 if entry[1] == 0 and self._build_locks.get(case_id) is entry:
                     del self._build_locks[case_id]
 
-    def background_documents(self, case_id: int) -> Tuple[List[str], Dict[str, str]]:
+    def background_documents(self, case_id: int) -> tuple[list[str], dict[str, str]]:
         with connect(self.db_path) as db:
             return document_paths(policy.unrestricted_documents(db, case_id))
 
@@ -96,9 +96,9 @@ class CaseIndexer:
                      for path in paths for stat in (Path(path).stat(),))
 
     # --------------------------------------------------------------------- índice
-    def get_index(self, case_id: int, paths: List[str], names: Optional[Dict[str, str]] = None,
-                  progreso: Optional[Callable[[float, str], None]] = None,
-                  parcial: Optional[Callable] = None) -> Tuple[rag_hybrid.IndiceHibrido, Signature, bool]:
+    def get_index(self, case_id: int, paths: list[str], names: dict[str, str] | None = None,
+                  progreso: Callable[[float, str], None] | None = None,
+                  parcial: Callable | None = None) -> tuple[rag_hybrid.IndiceHibrido, Signature, bool]:
         """Índice híbrido de exactamente `paths`. El armado ocurre fuera del lock de cachés."""
         signature = self.signature(paths)
         cache_key = (case_id, signature)

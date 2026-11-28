@@ -7,8 +7,9 @@ alcance; si no, se muestra «caso #N», igual que antes, para no filtrar informa
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from datetime import UTC, datetime
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any
 
 from vexa.database import connect
 from vexa.permissions.catalog import PERMISSIONS, ROLES
@@ -71,7 +72,7 @@ def action_label(action: str) -> str:
     return ACTION_LABELS.get(action, action.replace(".", " · ").replace("_", " ").capitalize())
 
 
-def local_time(value: Optional[str]) -> str:
+def local_time(value: str | None) -> str:
     """'2026-11-14T01:15:51.123Z' (UTC) -> '13-11-2026 22:15' en la hora del servidor."""
     if not value:
         return ""
@@ -94,7 +95,7 @@ def _date(value: Any) -> str:
 class _Names:
     """Nombres legibles cargados una sola vez por página."""
 
-    def __init__(self, db_path, visible_cases: Optional[Set[int]]):
+    def __init__(self, db_path, visible_cases: set[int] | None):
         with connect(db_path) as db:
             self.users = {r["id"]: r["name"] for r in db.execute("SELECT id, name FROM users")}
             self.teams = {r["id"]: r["name"] for r in db.execute("SELECT id, name FROM teams")}
@@ -154,7 +155,7 @@ class _Names:
         return SCOPE.get(kind, "un alcance")
 
 
-def _sentence(row, d: Dict[str, Any], n: _Names) -> str:
+def _sentence(row, d: dict[str, Any], n: _Names) -> str:
     """Frase en pasado que explica qué se hizo."""
     a, rid = row["action"], row["resource_id"]
     ok = row["result"] == "ok"
@@ -319,7 +320,7 @@ def _resource(row, n: _Names) -> str:
     return f"{rtype} #{rid}"
 
 
-def present(db_path, rows, visible_cases: Optional[Set[int]] = None) -> List[dict]:
+def present(db_path, rows, visible_cases: set[int] | None = None) -> list[dict]:
     """Filas listas para la vista: hora local, usuario, etiqueta, recurso y frase."""
     names = _Names(db_path, visible_cases)
     result = []

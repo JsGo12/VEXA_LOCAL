@@ -5,7 +5,8 @@ import json
 import logging
 import threading
 import time
-from typing import Any, Mapping, Optional
+from collections.abc import Mapping
+from typing import Any
 
 from flask import current_app, g, has_request_context, request
 
@@ -19,16 +20,16 @@ _FORBIDDEN_KEYS = {"password", "contrasena", "contraseña", "token", "csrf_token
                    "content", "answer", "secret"}
 
 
-def _clean(details: Optional[Mapping[str, Any]]) -> str:
+def _clean(details: Mapping[str, Any] | None) -> str:
     if not details:
         return ""
     safe = {k: v for k, v in details.items() if k.lower() not in _FORBIDDEN_KEYS}
     return json.dumps(safe, ensure_ascii=False, default=str)[:2000]
 
 
-def record(action: str, result: str = "ok", *, resource_type: Optional[str] = None,
-           resource_id: Any = None, reason: Optional[str] = None,
-           details: Optional[Mapping[str, Any]] = None, user=None, username: Optional[str] = None,
+def record(action: str, result: str = "ok", *, resource_type: str | None = None,
+           resource_id: Any = None, reason: str | None = None,
+           details: Mapping[str, Any] | None = None, user=None, username: str | None = None,
            db_path=None) -> None:
     """Inserta un evento. Un fallo de auditoría se registra en el log pero no tumba la petición."""
     try:
@@ -79,8 +80,8 @@ def purge_older_than(db_path, days: int) -> int:
     return removed
 
 
-def query(db_path, *, page: int = 1, per_page: int = 50, action: Optional[str] = None,
-          user_id: Optional[int] = None, result: Optional[str] = None):
+def query(db_path, *, page: int = 1, per_page: int = 50, action: str | None = None,
+          user_id: int | None = None, result: str | None = None):
     """Una página de eventos (más recientes primero). Devuelve (filas, total, acciones distintas)."""
     clauses, params = [], []
     if action:

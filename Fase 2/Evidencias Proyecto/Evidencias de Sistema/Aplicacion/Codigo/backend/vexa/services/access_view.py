@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from typing import Dict, List, Optional
 
 from vexa.permissions import policy
 from vexa.permissions.catalog import PERMISSIONS, ROLE_PERMISSIONS
@@ -30,7 +29,7 @@ VIA_LABELS = {
 }
 
 
-def permission_groups(db: sqlite3.Connection, user) -> List[dict]:
+def permission_groups(db: sqlite3.Connection, user) -> list[dict]:
     """Permisos por grupo con su origen: rol, ajuste manual o no incluido."""
     role_perms = ROLE_PERMISSIONS.get(user["role"], frozenset())
     overrides = policy.permission_overrides(db, int(user["id"]))
@@ -58,7 +57,7 @@ def permission_groups(db: sqlite3.Connection, user) -> List[dict]:
     return result
 
 
-def manageable_people(db: sqlite3.Connection, actor) -> List[sqlite3.Row]:
+def manageable_people(db: sqlite3.Connection, actor) -> list[sqlite3.Row]:
     """Cuentas que el actor puede revisar aquí: todas para el administrador, sus abogados para el jefe."""
     if actor["role"] == "admin":
         return db.execute("SELECT id, name, username, role, active FROM users ORDER BY active DESC, name").fetchall()
@@ -67,7 +66,7 @@ def manageable_people(db: sqlite3.Connection, actor) -> List[sqlite3.Row]:
                          ORDER BY u.active DESC, u.name""", (int(actor["id"]),)).fetchall()
 
 
-def _size(path: str) -> Optional[str]:
+def _size(path: str) -> str | None:
     try:
         size = os.path.getsize(path)
     except OSError:
@@ -79,11 +78,11 @@ def _size(path: str) -> Optional[str]:
     return None
 
 
-def document_cards(db: sqlite3.Connection, actor, case_id: int, people: List[sqlite3.Row]) -> List[dict]:
+def document_cards(db: sqlite3.Connection, actor, case_id: int, people: list[sqlite3.Row]) -> list[dict]:
     """Ficha de cada documento del caso: metadatos, reglas, quién lo ve (y por qué) y últimas descargas."""
     docs = db.execute("""SELECT d.*, u.name AS uploader FROM documents d LEFT JOIN users u ON u.id = d.uploaded_by
                          WHERE d.case_id = ? ORDER BY d.id""", (case_id,)).fetchall()
-    rules: Dict[int, List[dict]] = {}
+    rules: dict[int, list[dict]] = {}
     for row in db.execute("""SELECT a.document_id, a.effect, a.user_id, u.name, u.username FROM document_acl a
                              JOIN users u ON u.id = a.user_id JOIN documents d ON d.id = a.document_id
                              WHERE d.case_id = ? ORDER BY u.name""", (case_id,)):

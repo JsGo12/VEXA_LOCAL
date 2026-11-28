@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import secrets
 import sqlite3
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -20,7 +20,7 @@ class UserError(ValueError):
 
 
 def ensure_initial_admin(db_path: Path, data_dir: Path, username: str = "admin",
-                         password: Optional[str] = None) -> Optional[str]:
+                         password: str | None = None) -> str | None:
     """Crea UN administrador en una instalación sin administradores (atómico ante arranques paralelos).
 
     La contraseña se genera localmente si no se configuró VEXA_ADMIN_PASSWORD y se escribe una sola
@@ -159,7 +159,7 @@ def set_active(db_path: Path, user_id: int, active: bool) -> None:
                    (1 if active else 0, user_id))
 
 
-def list_users(db_path: Path, supervised_by: Optional[int] = None):
+def list_users(db_path: Path, supervised_by: int | None = None):
     """Todas las cuentas o, para un abogado jefe, solo los abogados a su cargo."""
     with connect(db_path) as db:
         if supervised_by is None:
@@ -176,7 +176,7 @@ def add_supervision(db_path: Path, chief_id: int, lawyer_id: int) -> None:
         db.execute("INSERT OR IGNORE INTO chief_lawyers(chief_id, lawyer_id) VALUES (?, ?)", (chief_id, lawyer_id))
 
 
-def set_supervised_lawyers(db_path: Path, chief_id: int, lawyer_ids: Iterable[int]) -> List[int]:
+def set_supervised_lawyers(db_path: Path, chief_id: int, lawyer_ids: Iterable[int]) -> list[int]:
     """Reemplaza los abogados a cargo del jefe (ids ya validados por policy.check_supervision)."""
     lawyer_ids = list(lawyer_ids)
     with connect(db_path) as db:
@@ -186,17 +186,17 @@ def set_supervised_lawyers(db_path: Path, chief_id: int, lawyer_ids: Iterable[in
     return lawyer_ids
 
 
-def supervision_map(db_path: Path) -> Dict[int, List[int]]:
+def supervision_map(db_path: Path) -> dict[int, list[int]]:
     """{id del jefe: [ids de sus abogados]} para el panel del administrador."""
     with connect(db_path) as db:
         rows = db.execute("SELECT chief_id, lawyer_id FROM chief_lawyers ORDER BY chief_id").fetchall()
-    result: Dict[int, List[int]] = {}
+    result: dict[int, list[int]] = {}
     for row in rows:
         result.setdefault(int(row["chief_id"]), []).append(int(row["lawyer_id"]))
     return result
 
 
-def _valid_members(db: sqlite3.Connection, member_ids: Iterable[int]) -> List[int]:
+def _valid_members(db: sqlite3.Connection, member_ids: Iterable[int]) -> list[int]:
     members = list(dict.fromkeys(int(m) for m in member_ids))
     if not members:
         return []
@@ -221,7 +221,7 @@ def create_team(db_path: Path, name: str, member_ids: Iterable[int]) -> int:
         raise UserError("Ya existe un equipo con ese nombre.") from exc
 
 
-def set_team_members(db_path: Path, team_id: int, member_ids: Iterable[int]) -> List[int]:
+def set_team_members(db_path: Path, team_id: int, member_ids: Iterable[int]) -> list[int]:
     with connect(db_path) as db:
         if db.execute("SELECT 1 FROM teams WHERE id = ?", (team_id,)).fetchone() is None:
             raise UserError("El equipo no existe.")
@@ -233,7 +233,7 @@ def set_team_members(db_path: Path, team_id: int, member_ids: Iterable[int]) -> 
         return members
 
 
-def list_teams(db_path: Path, only_ids: Optional[Iterable[int]] = None):
+def list_teams(db_path: Path, only_ids: Iterable[int] | None = None):
     """Equipos con sus integrantes; only_ids limita la lista (equipos que un jefe puede manejar)."""
     with connect(db_path) as db:
         teams = db.execute("SELECT id, name FROM teams ORDER BY name").fetchall()

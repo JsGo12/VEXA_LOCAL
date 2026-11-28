@@ -23,7 +23,6 @@ import time
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import List, Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -55,7 +54,7 @@ def _wrap_vault(key: bytes) -> bytes:
     return b"R" + vault._get().encrypt(key)
 
 
-def _unwrap(entries: List[bytes], recovery_key: Optional[bytes]):
+def _unwrap(entries: list[bytes], recovery_key: bytes | None):
     """Prueba cada envoltura. Devuelve (clave del archivo, se_usó_la_clave_de_recuperación)."""
     errors = []
     for wrapped in entries:
@@ -206,7 +205,7 @@ def _extract_validated(payload: bytes, staging: Path) -> None:
         conn.close()
 
 
-def restore_backup(backup_path, data_dir, *, replace=False, recovery_key: Optional[bytes] = None) -> Path:
+def restore_backup(backup_path, data_dir, *, replace=False, recovery_key: bytes | None = None) -> Path:
     """Restaura en una carpeta vacía; con replace=True conserva la carpeta anterior al lado.
 
     Con `recovery_key` (de la clave de recuperación) se puede restaurar en otro equipo o cuenta: la clave
@@ -258,7 +257,7 @@ def looks_like_cloud(path: Path) -> bool:
     return any(marker in str(path).lower() for marker in CLOUD_MARKERS)
 
 
-def list_backups(backup_dir: Path) -> List[dict]:
+def list_backups(backup_dir: Path) -> list[dict]:
     """Respaldos de la carpeta, del más reciente al más antiguo."""
     try:
         files = [p for p in Path(backup_dir).glob(f"{FILE_PREFIX}*{FILE_SUFFIX}") if p.is_file()]
@@ -315,7 +314,7 @@ def run_backup(settings, reason: str = "automático") -> Path:
         _run_lock.release()
 
 
-def backup_due(settings, now: Optional[float] = None) -> bool:
+def backup_due(settings, now: float | None = None) -> bool:
     if not settings.backup_hours:
         return False
     last = read_status(settings.data_dir).get("last_ok")
@@ -328,7 +327,7 @@ def backup_due(settings, now: Optional[float] = None) -> bool:
     return (now or time.time()) - last_ts >= settings.backup_hours * 3600
 
 
-def start_scheduler(settings, check_every: float = 15 * 60) -> Optional[threading.Thread]:
+def start_scheduler(settings, check_every: float = 15 * 60) -> threading.Thread | None:
     """Hilo que crea el respaldo cuando corresponde (revisa cada 15 minutos)."""
     if not settings.backup_hours:
         LOGGER.info("Respaldo automático desactivado (VEXA_BACKUP_HOURS=0).")

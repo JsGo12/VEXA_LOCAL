@@ -4,8 +4,8 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Dict, List, Set, Tuple
 
 from vexa.security import vault
 
@@ -13,14 +13,14 @@ LOGGER = logging.getLogger(__name__)
 
 
 class CarpetaVigilada(threading.Thread):
-    def __init__(self, base: Path, ingerir: Callable[[int, Path], bool], extensiones: Set[str],
+    def __init__(self, base: Path, ingerir: Callable[[int, Path], bool], extensiones: set[str],
                  intervalo: float = 5.0):
         super().__init__(daemon=True, name="vexa-carpeta-vigilada")
         self.base, self.ingerir, self.extensiones, self.intervalo = Path(base), ingerir, extensiones, intervalo
-        self._vistos: Dict[Path, Tuple[int, int]] = {}
+        self._vistos: dict[Path, tuple[int, int]] = {}
         self._parar = threading.Event()
 
-    def escanear_una_vez(self) -> List[Path]:
+    def escanear_una_vez(self) -> list[Path]:
         """Un archivo se procesa cuando su tamaño/fecha no cambió entre dos revisiones (ya terminó de copiarse)."""
         procesados = []
         if not self.base.is_dir():
