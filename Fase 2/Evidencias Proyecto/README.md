@@ -142,7 +142,6 @@ VEXA_LOCAL/
 │   ├── Evidencias Grupales/
 │   ├── Evidencias Individuales/
 │   └── Evidencias Proyecto/
-├── historico/     Versión anterior del código (solo referencia)
 └── README.md
 ```
 

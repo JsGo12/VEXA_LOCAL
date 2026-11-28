@@ -144,7 +144,6 @@ VEXA_LOCAL/
 │           └── Aplicacion/
 │               └── Codigo/   Aplicación (backend, frontend, Electron, scripts y docs)
 ├── Fase 3/        Evidencias de la Fase 3 (presentación final)
-├── historico/     Versión anterior e interfaces antiguas (Tkinter, pywebview), solo referencia
 └── README.md
 ```
 
