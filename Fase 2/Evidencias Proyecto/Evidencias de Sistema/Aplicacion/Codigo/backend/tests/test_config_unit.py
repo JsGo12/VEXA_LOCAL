@@ -92,3 +92,11 @@ def test_tailscale_settings_are_validated():
     with pytest.raises(config.ConfigError):
         _load(TAILSCALE_HOST="vexa:443")
     assert _load(TAILSCALE_BIND_ADDRESS="100.70.1.2").tailscale_bind_address == "100.70.1.2"
+
+
+def test_secrets_are_hidden_from_repr_and_summary():
+    settings = config.Settings(secret_key="s" * 40, admin_password=None)
+    assert "s" * 40 not in repr(settings)
+    summary = settings.safe_summary()
+    assert summary["secret_key"] == "<definida>"
+    assert summary["admin_password"] == "<vacía>"
