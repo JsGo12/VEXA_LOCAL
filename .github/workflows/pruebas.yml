@@ -1,0 +1,31 @@
+# Revisión automática de VEXA: corre las pruebas del backend en cada push y pull request.
+# Usa Windows porque el servidor real es Windows (DPAPI, rutas). No necesita Ollama: las pruebas lo simulan.
+name: Pruebas
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: "Fase 2/Evidencias Proyecto/Evidencias de Sistema/Aplicacion/Codigo"
+
+jobs:
+  backend:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: "Fase 2/Evidencias Proyecto/Evidencias de Sistema/Aplicacion/Codigo/backend/requirements*.txt"
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+      - name: Pruebas (pytest)
+        run: python -m pytest -q backend/tests
