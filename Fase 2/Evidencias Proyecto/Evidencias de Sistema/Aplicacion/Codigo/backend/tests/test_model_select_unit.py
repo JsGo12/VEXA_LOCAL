@@ -36,3 +36,9 @@ def test_installed_model_matches_name_or_tag():
     assert model_select.modelo_instalado("bge-m3", {"bge-m3:latest"})
     assert model_select.modelo_instalado("llama3.2:1b", {"llama3.2:1b"})
     assert not model_select.modelo_instalado("llama3", {"llama3.2:1b"})
+
+
+def test_profile_options_use_the_context_size():
+    opciones = model_select.Perfil("m", 4096, 9000).opciones
+    assert opciones["num_ctx"] == 4096
+    assert 0 <= opciones["temperature"] <= 1
