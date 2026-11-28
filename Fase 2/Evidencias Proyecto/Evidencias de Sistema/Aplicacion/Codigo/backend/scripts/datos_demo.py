@@ -111,13 +111,45 @@ def create_cases(settings, ids: dict[str, int]) -> dict[str, int]:
     return case_ids
 
 
+# (caso, quién, estado, avance %, nota, motivo de cierre)
+PROGRESS = [
+    ("Despido injustificado Pérez", "jefa", "en_revision", 70, "Demanda redactada; falta revisar el cálculo.", ""),
+    ("Arriendo impago Gómez", "jefa", "en_curso", 40, "Se envió carta de cobro al arrendatario.", ""),
+    ("Divorcio de mutuo acuerdo Díaz", "admin", "cerrado", 90, "Las partes firmaron el acuerdo.", "acuerdo"),
+]
+# (caso, quién, nota del abogado)
+NOTES = [
+    ("Despido injustificado Pérez", "luis", "El cliente trae mañana las últimas tres liquidaciones."),
+    ("Accidente laboral Muñoz", "ana", "Se pidió al empleador el registro de capacitación en altura."),
+]
+# (caso, quién, mensaje del equipo)
+MESSAGES = [
+    ("Despido injustificado Pérez", "luis", "Faltan documentos: el finiquito no aparece en la carpeta."),
+    ("Despido injustificado Pérez", "jefa", "Lo pido a la empresa hoy. Revisa el plazo de caducidad."),
+    ("Accidente laboral Muñoz", "pedro", "Subí el informe del accidente; reviso la licencia médica."),
+]
+
+
+def create_activity(settings, ids: dict[str, int], case_ids: dict[str, int]) -> None:
+    from vexa.services import cases as case_service
+    from vexa.services import messages as message_service
+    with connect(settings.db_path) as db:
+        names = {row["id"]: row["name"] for row in db.execute("SELECT id, name FROM users")}
+    for title, who, status, progress, note, reason in PROGRESS:
+        case_service.update_progress(settings.db_path, case_ids[title], ids[who], status, progress, note, reason)
+    for title, who, note in NOTES:
+        case_service.add_note(settings.db_path, case_ids[title], ids[who], note)
+    for title, who, body in MESSAGES:
+        message_service.post(settings.db_path, case_ids[title], {"id": ids[who], "name": names[ids[who]]}, body)
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Crear datos de demostración de VEXA (ficticios)")
     parser.add_argument("carpeta", type=Path, help="carpeta de datos NUEVA para la demostración")
     args = parser.parse_args(argv)
     settings = prepare(args.carpeta.resolve())
     ids = create_people(settings)
-    create_cases(settings, ids)
+    create_activity(settings, ids, create_cases(settings, ids))
     print(f"Datos de demostración creados en {settings.data_dir} ({len(CASES)} casos ficticios)")
     print(f"Usuarios: admin, {', '.join(p[0] for p in PEOPLE)} · contraseña: {DEMO_PASSWORD}")
     print(f"Para usarlos: $env:VEXA_DATA_DIR='{settings.data_dir}'; .\\.venv\\Scripts\\python.exe backend\\run.py")
