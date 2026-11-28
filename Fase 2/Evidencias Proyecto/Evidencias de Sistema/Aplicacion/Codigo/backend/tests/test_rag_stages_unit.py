@@ -17,3 +17,9 @@ def test_batches_never_mix_documents():
     chunks = [_chunk(0, doc="a.txt"), _chunk(1, doc="a.txt"), _chunk(0, doc="b.txt")]
     grupos = stages.lotes(chunks)
     assert [[c.doc_name for c in g] for g in grupos] == [["a.txt", "a.txt"], ["b.txt"]]
+
+
+def test_batches_respect_the_character_limit():
+    chunks = [_chunk(i, "x" * 1000) for i in range(3)]
+    assert [len(g) for g in stages.lotes(chunks, max_chars=2500)] == [2, 1]
+    assert stages.lotes([]) == []
