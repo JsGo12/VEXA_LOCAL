@@ -46,7 +46,7 @@ def page():
         if case_id and case_id in scope:
             me = db.execute("SELECT id, name, username, role, active FROM users WHERE id = ?", (g.user["id"],)).fetchone()
             listed = people if admin else [*people, me]
-            documents = access_view.document_cards(db, g.user, case_id, listed)
+            documents = access_view.document_cards(db, case_id, listed)
         team_ids = None if admin else [t["id"] for t in db.execute("SELECT id FROM teams").fetchall()
                                        if policy.team_is_manageable(db, g.user, t["id"])]
         firm = policy.has_firm_scope(db, g.user)

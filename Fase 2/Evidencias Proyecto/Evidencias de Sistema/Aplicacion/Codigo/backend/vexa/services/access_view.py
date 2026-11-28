@@ -78,7 +78,7 @@ def _size(path: str) -> str | None:
     return None
 
 
-def document_cards(db: sqlite3.Connection, actor, case_id: int, people: list[sqlite3.Row]) -> list[dict]:
+def document_cards(db: sqlite3.Connection, case_id: int, people: list[sqlite3.Row]) -> list[dict]:
     """Ficha de cada documento del caso: metadatos, reglas, quién lo ve (y por qué) y últimas descargas."""
     docs = db.execute("""SELECT d.*, u.name AS uploader FROM documents d LEFT JOIN users u ON u.id = d.uploaded_by
                          WHERE d.case_id = ? ORDER BY d.id""", (case_id,)).fetchall()
