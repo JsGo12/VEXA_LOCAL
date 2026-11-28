@@ -30,6 +30,10 @@ Resumen de controles y de sus límites. Cada control tiene pruebas en `backend/t
 
 Denegación por defecto, comprobada en el backend en cada ruta sensible, antes de indexar o recuperar documentos (RAG), antes de descargar y en el asistente. Ver [permisos.md](permisos.md).
 
+- **Calendario de vencimientos** (`/calendario`): solo lista los casos dentro del alcance de quien lo abre (el mismo de Mis casos).
+- **Métricas** (Administración > Métricas): solo para el administrador y solo con metadatos (estados, fechas, asignaciones y nombres de abogados); no muestran títulos de casos, documentos ni notas.
+- **Visor de citas** (`/documents/<id>/ver`): exige el mismo permiso que descargar, queda en la auditoría y solo puede incrustarse dentro de VEXA (`frame-ancestors 'self'`).
+
 ## Datos y archivos
 
 - Cifrado en reposo (Fernet/AES-128-CBC + HMAC) de documentos, archivos procesados de la carpeta vigilada, historial de chat y del asistente, fragmentos, embeddings y resúmenes. La clave (`vault.key`) se protege con DPAPI en Windows; si DPAPI falla al crear una clave nueva, VEXA se detiene (no cae a texto plano).
