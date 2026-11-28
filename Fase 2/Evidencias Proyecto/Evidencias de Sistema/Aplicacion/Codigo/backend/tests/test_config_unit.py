@@ -38,3 +38,18 @@ def test_tailscale_address_ranges():
     assert config.is_tailscale_address("fd7a:115c:a1e0::1")
     assert not config.is_tailscale_address("100.128.0.1")
     assert not config.is_tailscale_address("nombre-equipo")
+
+
+def test_host_must_be_loopback():
+    for host in ("0.0.0.0", "::", "192.168.1.20"):
+        with pytest.raises(config.ConfigError):
+            _load(VEXA_HOST=host)
+    assert _load(VEXA_HOST="localhost").host == "127.0.0.1"
+
+
+def test_ollama_host_gets_scheme_and_must_be_local():
+    assert _load(OLLAMA_HOST="localhost:11434/").ollama_host == "http://localhost:11434"
+    with pytest.raises(config.ConfigError):
+        _load(OLLAMA_HOST="http://10.0.0.5:11434")
+    with pytest.raises(config.ConfigError):
+        _load(OLLAMA_HOST="ftp://127.0.0.1")
