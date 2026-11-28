@@ -35,3 +35,17 @@ def test_chunker_keeps_records_whole():
     chunks, ficha = hybrid.chunkear("fichas.txt", paginas)
     assert ficha is True
     assert [c.text.splitlines()[0] for c in chunks] == ["Cliente 1", "Cliente 2"]
+
+
+def test_ranking_drops_non_positive_scores():
+    import numpy as np
+    assert hybrid._ranking(np.array([0.5, 0.0, 2.0, -1.0]), 3) == [2, 0]
+    assert hybrid._ranking(np.array([0.0, -0.1]), 5) == []
+
+
+def test_neighbours_are_added_except_for_records():
+    chunks = [_chunk(0), _chunk(1), _chunk(2), _chunk(3)]
+    indice = hybrid._armar(chunks, None, set(), "modelo")
+    assert [c.chunk_index for c in hybrid.con_vecinos([chunks[1]], indice)] == [0, 1, 2]
+    fichas = hybrid._armar(chunks, None, {"a.txt"}, "modelo")
+    assert hybrid.con_vecinos([chunks[1]], fichas) == [chunks[1]]
