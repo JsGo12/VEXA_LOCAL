@@ -13,7 +13,7 @@ select = [
     "C4",     # comprensiones innecesarias
     "PIE",    # código redundante
     "I",      # orden de los imports (stdlib, terceros, vexa)
-    "UP012", "UP017", "UP037",  # modernizaciones ya aplicadas en el código
+    "UP006", "UP007", "UP012", "UP017", "UP035", "UP037", "UP045",  # tipos nativos y otras modernizaciones
 ]
 
 [lint.isort]
