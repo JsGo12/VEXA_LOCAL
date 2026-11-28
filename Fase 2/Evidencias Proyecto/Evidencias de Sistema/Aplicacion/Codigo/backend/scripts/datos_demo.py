@@ -64,13 +64,61 @@ def create_people(settings) -> dict[str, int]:
     return ids
 
 
+# (título, referencia, responsable, días hasta la fecha límite, resumen, documentos {nombre: texto})
+CASES = [
+    ("Despido injustificado Pérez", "LAB-2026-014", "luis", -4,
+     "Trabajador despedido sin carta de aviso; se reclama indemnización por años de servicio.",
+     {"contrato_trabajo.txt": "Contrato de trabajo entre Comercial Andes SpA y Juan Pérez, cargo bodeguero, "
+                              "sueldo base 650.000 pesos, jornada de 45 horas, inicio el 3 de marzo de 2019.",
+      "carta_despido.txt": "Con fecha 2 de septiembre de 2026 se comunica el término del contrato por "
+                           "necesidades de la empresa. No se adjunta finiquito."}),
+    ("Arriendo impago Gómez", "CIV-2026-031", "luis", 3,
+     "Arrendatario con tres meses de renta impaga; se evalúa demanda de término de arriendo.",
+     {"contrato_arriendo.txt": "Contrato de arriendo del departamento 504, calle Los Aromos 1200. Renta "
+                               "mensual 450.000 pesos, pagadera los primeros cinco días de cada mes.",
+      "cobranza.txt": "Se adeudan las rentas de julio, agosto y septiembre de 2026, total 1.350.000 pesos."}),
+    ("Accidente laboral Muñoz", "LAB-2026-022", "team", 20,
+     "Caída en faena; se revisa responsabilidad del empleador y cobertura del seguro.",
+     {"informe_accidente.txt": "El 14 de agosto de 2026 la trabajadora Rosa Muñoz cayó desde una escalera "
+                               "sin arnés. Licencia médica de 30 días. Testigo: Carlos Vera."}),
+    ("Cobro de factura Servicios Sur", "COM-2026-007", "ana", 45,
+     "Factura vencida por servicios de mantención; se prepara gestión preparatoria de cobro.",
+     {"factura_1182.txt": "Factura N.° 1182 de Servicios Sur Ltda. por 2.300.000 pesos, emitida el 10 de "
+                          "junio de 2026, vencimiento a 30 días. Sin pagos registrados."}),
+    ("Divorcio de mutuo acuerdo Díaz", "FAM-2026-003", "pedro", 60,
+     "Acuerdo completo y suficiente en preparación: alimentos, cuidado personal y relación directa.",
+     {"propuesta_acuerdo.txt": "Pensión de alimentos de 300.000 pesos mensuales para dos hijos. Cuidado "
+                               "personal de la madre; relación directa con el padre fines de semana alternos."}),
+    ("Revisión de contrato de software", "COM-2026-011", "jefa", 10,
+     "Revisión de cláusulas de licencia, confidencialidad y multa por incumplimiento.",
+     {"contrato_licencia.txt": "La licencia es no exclusiva por 24 meses. Multa de 5 % del valor anual por "
+                               "cada semana de atraso en la entrega. Confidencialidad por 5 años."}),
+]
+
+
+def create_cases(settings, ids: dict[str, int]) -> dict[str, int]:
+    from datetime import datetime, timedelta
+
+    from vexa.services import cases as case_service
+    case_ids = {}
+    for title, reference, owner, days, summary, files in CASES:
+        due_at = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%dT18:00")
+        kind, assignee = ("team", ids["team"]) if owner == "team" else ("user", ids[owner])
+        case_ids[title] = case_service.create_case(
+            settings.db_path, settings.upload_dir, title=title, summary=summary, reference=reference,
+            due_at=due_at, assignment_type=kind, assignee_id=assignee,
+            files=[(name, text.encode("utf-8")) for name, text in files.items()], created_by=ids["admin"])
+    return case_ids
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Crear datos de demostración de VEXA (ficticios)")
     parser.add_argument("carpeta", type=Path, help="carpeta de datos NUEVA para la demostración")
     args = parser.parse_args(argv)
     settings = prepare(args.carpeta.resolve())
-    create_people(settings)
-    print(f"Datos de demostración creados en {settings.data_dir}")
+    ids = create_people(settings)
+    create_cases(settings, ids)
+    print(f"Datos de demostración creados en {settings.data_dir} ({len(CASES)} casos ficticios)")
     print(f"Usuarios: admin, {', '.join(p[0] for p in PEOPLE)} · contraseña: {DEMO_PASSWORD}")
     print(f"Para usarlos: $env:VEXA_DATA_DIR='{settings.data_dir}'; .\\.venv\\Scripts\\python.exe backend\\run.py")
     return 0
