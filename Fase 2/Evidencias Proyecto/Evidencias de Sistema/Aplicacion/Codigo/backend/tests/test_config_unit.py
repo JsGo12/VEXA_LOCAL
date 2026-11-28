@@ -69,3 +69,16 @@ def test_flask_server_is_not_allowed_in_production():
     assert _load(VEXA_ENV="production").is_production
     with pytest.raises(config.ConfigError):
         _load(VEXA_ENV="staging")
+
+
+def test_invalid_log_level_is_rejected():
+    assert _load(VEXA_LOG_LEVEL="debug").log_level == "DEBUG"
+    with pytest.raises(config.ConfigError):
+        _load(VEXA_LOG_LEVEL="verbose")
+
+
+def test_backup_dir_must_be_outside_data_dir(tmp_path):
+    with pytest.raises(config.ConfigError):
+        _load(VEXA_DATA_DIR=str(tmp_path), VEXA_BACKUP_DIR=str(tmp_path / "respaldos"))
+    settings = _load(VEXA_DATA_DIR=str(tmp_path / "datos"), VEXA_BACKUP_DIR=str(tmp_path / "respaldos"))
+    assert settings.backup_dir == tmp_path / "respaldos"
