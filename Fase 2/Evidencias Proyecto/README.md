@@ -141,14 +141,14 @@ VEXA_LOCAL/
 ├── Fase 2/        Evidencias de la Fase 2 (desarrollo)
 │   ├── Evidencias Grupales/
 │   ├── Evidencias Individuales/
-│   └── Evidencias Proyecto (version Agil)/
+│   └── Evidencias Proyecto/
 ├── historico/     Versión anterior del código (solo referencia)
 └── README.md
 ```
 
 ## Documentación del proyecto (Fase 2)
 
-Los documentos están en `Fase 2/Evidencias Proyecto (version Agil)/`, salvo que se indique otra ruta.
+Los documentos están en `Fase 2/Evidencias Proyecto/`, salvo que se indique otra ruta.
 
 | Documento | Contenido |
 | --- | --- |
