@@ -104,9 +104,9 @@ def protected_key_file(key: bytes) -> bytes:
 
 
 def _write_temp(path: Path, data: bytes) -> Path:
-    """Write data to a new temp file next to path (fsync + 0600) and return its path.
+    """Escribe `data` en un archivo temporal junto a `path` (fsync + permisos 0600) y devuelve su ruta.
 
-    If writing fails, the partial temp file is removed before re-raising.
+    Si la escritura falla, borra el temporal incompleto antes de relanzar el error.
     """
     tmp = path.with_name(path.name + "." + secrets.token_hex(8) + ".tmp")
     try:
