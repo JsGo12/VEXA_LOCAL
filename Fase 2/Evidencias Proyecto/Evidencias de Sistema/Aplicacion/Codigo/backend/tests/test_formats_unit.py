@@ -23,3 +23,8 @@ def test_rows_are_paged():
     filas = [["n"]] + [[str(i)] for i in range(formats.FILAS_POR_PAGINA + 1)]
     paginas = formats._filas_a_paginas(filas, "", pagina0=3)
     assert [p["page_number"] for p in paginas] == [3, 4]
+
+
+def test_csv_with_semicolons_is_extracted():
+    paginas = formats.extraer("datos.CSV", b"Nombre;Ciudad\nAna;Talca\n")
+    assert paginas == [{"page_number": 1, "text": "Nombre: Ana | Ciudad: Talca"}]
