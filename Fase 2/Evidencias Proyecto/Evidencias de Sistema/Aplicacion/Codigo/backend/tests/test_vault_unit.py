@@ -36,3 +36,9 @@ def test_encrypt_existing_is_idempotent(tmp_path):
     assert vault.encrypt_existing(carpeta) == 2
     assert vault.encrypt_existing(carpeta) == 0
     assert vault.read_bytes(carpeta / "sub" / "b.txt") == b"dos"
+
+
+def test_text_from_another_key_is_reported_as_unreadable(tmp_path):
+    cifrado = vault.enc_text("secreto")
+    vault.configure(tmp_path / "otra_clave")
+    assert vault.dec_text(cifrado) == "[contenido ilegible: clave distinta]"
